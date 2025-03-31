@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "1055488670149",
+    "firebase_url": "https://fitflow-b9a2e-default-rtdb.firebaseio.com",
+    "project_id": "fitflow-b9a2e",
+    "storage_bucket": "fitflow-b9a2e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1055488670149:android:25370f46a0b870a21b33ac",
+        "android_client_info": {
+          "package_name": "com.example.fit_flow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDW8WpbSHeW3_gyo-q6Cs-3Uc7-6lkXcJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1055488670149:android:a3ba02d3faa07ca41b33ac",
+        "android_client_info": {
+          "package_name": "com.example.fitness_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDW8WpbSHeW3_gyo-q6Cs-3Uc7-6lkXcJQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

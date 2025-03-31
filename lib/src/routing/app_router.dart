@@ -1,0 +1,163 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../common_widgets/app_scaffold.dart';
+import '../features/auth/application/auth_controller.dart';
+import '../features/auth/presentation/sign_in_screen.dart';
+import '../features/auth/presentation/sign_up_screen.dart'; // Import SignUpScreen
+import '../features/dashboard/presentation/dashboard_screen.dart';
+import '../features/nutrition/nutrition_router.dart';
+import '../features/onboarding/application/onboarding_controller.dart';
+import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/profile/presentation/nutrition_goals_screen.dart';
+import '../features/profile/presentation/profile_screen.dart';
+
+// Placeholder screens for routes we haven't implemented yet
+class PlaceholderScreen extends StatelessWidget {
+  final String title;
+
+  const PlaceholderScreen({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return AppScaffold(
+      title: title,
+      showBackButton: true,
+      body: Center(child: Text('$title Screen Coming Soon')),
+    );
+  }
+}
+
+/// Helper function to determine if a route should show the bottom navigation bar
+bool shouldShowBottomNavBar(String path) {
+  // Don't show nav bar on authentication or onboarding screens
+  if (path.startsWith('/sign-in') ||
+      path.startsWith('/sign-up') ||
+      path.startsWith('/onboarding')) {
+    return false;
+  }
+
+  // Don't show nav bar on detail screens with back buttons
+  if (path.contains('/add') ||
+      path.contains('/edit') ||
+      path.contains('/details') ||
+      path.contains('/settings')) {
+    return false;
+  }
+
+  // Show on main navigation screens
+  return true;
+}
+
+final goRouterProvider = Provider<GoRouter>((ref) {
+  // Watch for changes to the onboarding and auth states
+  final onboardingCompleted = ref.watch(onboardingCompletedProvider);
+  final authState = ref.watch(authStateProvider);
+
+  return GoRouter(
+    initialLocation: '/',
+    debugLogDiagnostics: true,
+    redirect: (context, state) {
+      // First check if onboarding is completed
+      if (!onboardingCompleted && state.fullPath != '/onboarding') {
+        return '/onboarding';
+      }
+
+      // Then check authentication
+      final isLoggedIn = authState.when(
+        data: (user) => user != null,
+        loading: () => false,
+        error: (_, __) => false,
+      );
+
+      // Allow access to auth screens if not logged in
+      final isAuthScreen =
+          state.fullPath == '/sign-in' || state.fullPath == '/sign-up';
+
+      // If not logged in and not on an auth screen or onboarding, redirect to login
+      if (!isLoggedIn &&
+          !isAuthScreen &&
+          onboardingCompleted &&
+          state.fullPath != '/onboarding') {
+        return state.path ?? '/sign-in';
+      }
+
+      // If logged in and on an auth screen, redirect to dashboard
+      if (isLoggedIn && isAuthScreen) {
+        return '/dashboard';
+      }
+
+      // No redirection needed
+      return null;
+    },
+    routes: [
+      // Onboarding
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+
+      // Auth
+      GoRoute(
+        path: '/sign-in',
+        builder: (context, state) => const SignInScreen(),
+      ),
+      GoRoute(
+        // Add route for SignUpScreen
+        path: '/sign-up',
+        builder: (context, state) => const SignUpScreen(),
+      ),
+
+      // Dashboard (main screen)
+      GoRoute(path: '/', redirect: (_, __) => '/dashboard'),
+      GoRoute(
+        path: '/dashboard',
+        builder: (context, state) => const DashboardScreen(),
+      ),
+
+      // Nutrition routes
+      ...nutritionRoutes,
+
+      // Workout routes
+      GoRoute(
+        path: '/workouts/new',
+        builder:
+            (context, state) => const PlaceholderScreen(title: 'New Workout'),
+      ),
+      GoRoute(
+        path: '/workouts/:id',
+        builder: (context, state) {
+          final workoutId = state.pathParameters['id']!;
+          return PlaceholderScreen(title: 'Workout: $workoutId');
+        },
+      ),
+
+      // Profile & Settings routes
+      GoRoute(
+        path: '/profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile/nutrition-goals',
+        builder: (context, state) => const NutritionGoalsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/theme',
+        builder:
+            (context, state) =>
+                const PlaceholderScreen(title: 'Theme Settings'),
+      ),
+      GoRoute(
+        path: '/settings/accessibility',
+        builder:
+            (context, state) => const PlaceholderScreen(title: 'Accessibility'),
+      ),
+      GoRoute(
+        path: '/export',
+        builder:
+            (context, state) => const PlaceholderScreen(title: 'Export Data'),
+      ),
+    ],
+  );
+});
