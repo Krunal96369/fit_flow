@@ -130,21 +130,45 @@ class CloudFunctionsService {
   /// Search for food by barcode using FatSecret API
   Future<List<FoodItem>> searchFoodsByBarcode(String barcode) async {
     try {
-      // Call the fatSecretProxy cloud function with barcode search
-      final HttpsCallable callable = _functions.httpsCallable('fatSecretProxy');
+      debugPrint('======================================================');
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Starting barcode search for: "$barcode"');
+
+      // Format barcode to GTIN-13 if needed (pad with leading zeros)
+      final formattedBarcode = _formatBarcodeToGTIN13(barcode);
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Formatted barcode: "$formattedBarcode"');
+
+      // Call the searchFoodsByBarcode cloud function
+      final HttpsCallable callable =
+          _functions.httpsCallable('searchFoodsByBarcode');
+
+      debugPrint(
+          'CRITICAL BREAKPOINT: About to call searchFoodsByBarcode cloud function');
       final result = await callable.call({
-        'method': 'foods.search',
-        'params': {
-          'search_expression': barcode,
-          'max_results': 10,
-        },
+        'barcode': formattedBarcode,
+        'maxResults': 10,
       });
+
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Received response from barcode search');
 
       // Parse the response
       final data = result.data;
-      if (data == null ||
-          data['foods'] == null ||
-          data['foods']['food'] == null) {
+      if (data == null) {
+        debugPrint('CLOUD FUNCTIONS SERVICE: Response data is null');
+        debugPrint('======================================================');
+        throw Exception('Cloud Function returned null response');
+      }
+
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Response data type: ${data.runtimeType}');
+      debugPrint('CLOUD FUNCTIONS SERVICE: Raw data: $data');
+
+      if (data['foods'] == null || data['foods']['food'] == null) {
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: No valid food data found in response');
+        debugPrint('======================================================');
         return [];
       }
 
@@ -154,16 +178,59 @@ class CloudFunctionsService {
       final List foodsList;
       if (foodsData is List) {
         foodsList = foodsData;
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Found ${foodsList.length} foods in response');
       } else {
         foodsList = [foodsData];
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Found 1 food in response (single item)');
       }
 
-      // Convert to FoodItem objects
-      return foodsList.map<FoodItem>((item) => _parseFoodItem(item)).toList();
+      // Convert to FoodItem objects and add barcode
+      final foodItems = foodsList.map<FoodItem>((item) {
+        final foodItem = _parseFoodItem(item);
+        return foodItem.copyWith(barcode: barcode);
+      }).toList();
+
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Successfully parsed ${foodItems.length} food items');
+      debugPrint('======================================================');
+      return foodItems;
     } catch (e) {
-      debugPrint('Error calling searchFoodsByBarcode cloud function: $e');
-      return [];
+      debugPrint('CRITICAL ERROR: Cloud Functions barcode search failed: $e');
+      debugPrint('======================================================');
+      rethrow; // Let the repository handle the error
     }
+  }
+
+  /// Helper method to format barcode to GTIN-13 format
+  /// FatSecret requires barcodes in GTIN-13 format (13 digits)
+  String _formatBarcodeToGTIN13(String barcode) {
+    // Remove any non-digit characters
+    final digitsOnly = barcode.replaceAll(RegExp(r'[^\d]'), '');
+
+    // If it's already 13 digits, return as is
+    if (digitsOnly.length == 13) {
+      return digitsOnly;
+    }
+
+    // If it's UPC-A (12 digits), add leading zero
+    if (digitsOnly.length == 12) {
+      return '0$digitsOnly';
+    }
+
+    // If it's EAN-8 (8 digits), pad with zeros
+    if (digitsOnly.length == 8) {
+      return '00000$digitsOnly';
+    }
+
+    // For other formats, pad with zeros to make 13 digits
+    if (digitsOnly.length < 13) {
+      return digitsOnly.padLeft(13, '0');
+    }
+
+    // If longer than 13 digits, truncate to first 13
+    return digitsOnly.substring(0, 13);
   }
 
   /// Helper method to parse food item from API response

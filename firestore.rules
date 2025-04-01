@@ -20,6 +20,12 @@ service cloud.firestore {
         resource.data['createdBy'] == request.auth.uid;
     }
 
+    // Allow users to manage their own recent foods
+    match /recent_foods/{docId} {
+      allow read, write: if request.auth != null &&
+        docId.startsWith(request.auth.uid + '_');
+    }
+
     // Restrict app_config - only admins and Cloud Functions can access
     match /app_config/{docId} {
       allow read, write: if false; // Only backend access

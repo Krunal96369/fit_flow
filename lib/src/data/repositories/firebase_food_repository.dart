@@ -297,114 +297,118 @@ class FirebaseFoodRepository implements FoodRepository {
   @override
   Future<List<FoodItem>> searchFoodByBarcode(String barcode) async {
     try {
-      // First check if we have internet connection
-      final isConnected = await _isConnected();
+      debugPrint('======================================================');
+      debugPrint(
+          'REPOSITORY DEBUG: Starting searchFoodByBarcode with barcode: "$barcode"');
 
-      // Check if the barcode is already cached locally
-      final cachedResults = _foodsBox.keys
-          .where((key) => key.toString().contains(barcode))
-          .map((key) => _foodsBox.get(key))
-          .map(
-            (data) => data != null
-                ? FoodItem.fromMap(Map<String, dynamic>.from(data))
-                : null,
-          )
-          .whereType<FoodItem>()
-          .toList();
+      // Check network connection - but force to true for testing
+      const isConnected = true; // Force connected
+      debugPrint(
+          'REPOSITORY DEBUG: Internet connection forced to: $isConnected');
 
-      // If we have cached results and no connection, return them
-      if (cachedResults.isNotEmpty && !isConnected) {
-        return cachedResults;
+      // Results container
+      List<FoodItem> results = [];
+
+      // ALWAYS try Cloud Functions first (highest priority)
+      try {
+        debugPrint('======================================================');
+        debugPrint(
+            'CLOUD FUNCTIONS DEBUG: Attempting Cloud Functions barcode search');
+
+        // Remove rate limiting for testing
+        debugPrint(
+            'CLOUD FUNCTIONS DEBUG: Bypassing rate limiting for testing');
+
+        // ADD BREAKPOINT HERE to confirm this is called
+        debugPrint(
+            'CRITICAL BREAKPOINT: About to call Cloud Functions for barcode search');
+        final cloudFunctionsFoods =
+            await _cloudFunctionsService.searchFoodsByBarcode(barcode);
+
+        debugPrint(
+            'CLOUD FUNCTIONS DEBUG: Received ${cloudFunctionsFoods.length} results from Cloud Functions');
+
+        // Add results directly - don't filter for Cloud Functions priority
+        results.addAll(cloudFunctionsFoods);
+
+        // Cache results
+        for (final food in cloudFunctionsFoods) {
+          await _foodsBox.put(_getKeyForFood(food), food.toMap());
+        }
+
+        debugPrint(
+            'REPOSITORY DEBUG: Found ${results.length} results from Cloud Functions, returning');
+        return results;
+      } catch (e, stackTrace) {
+        debugPrint('CRITICAL ERROR: Cloud Functions call failed: $e');
+        debugPrint(
+            'REPOSITORY DEBUG: Entered catch block for Cloud Functions failure.');
+        debugPrint('Stack trace: $stackTrace');
       }
 
-      // If we have a connection, try to fetch using Cloud Functions
-      if (isConnected) {
+      // If Cloud Functions failed, try FatSecret directly
+      if (results.isEmpty) {
+        debugPrint(
+            'REPOSITORY DEBUG: Cloud Functions failed or returned empty, trying direct API...');
         try {
-          // Search using Firebase Cloud Functions
-          final apiResults =
-              await _cloudFunctionsService.searchFoodsByBarcode(barcode);
+          final isInitialized = await _initializeFatSecretService();
+          if (isInitialized) {
+            debugPrint('REPOSITORY DEBUG: Trying direct FatSecret API call');
+            final apiResults =
+                await _fatSecretService.searchFoodsByBarcode(barcode);
+            results.addAll(apiResults);
 
-          // Cache the results locally
-          for (final food in apiResults) {
-            await _foodsBox.put('food_${food.id}', food.toMap());
-          }
+            // Cache results
+            for (final food in apiResults) {
+              await _foodsBox.put(_getKeyForFood(food), food.toMap());
+            }
 
-          if (apiResults.isNotEmpty) {
-            return apiResults;
+            if (results.isNotEmpty) {
+              debugPrint(
+                  'REPOSITORY DEBUG: Found ${results.length} results from direct API call');
+              return results;
+            }
           }
         } catch (e) {
-          debugPrint(
-              'Error searching food by barcode using Cloud Functions: $e');
-          // Fall back to direct API search if Cloud Functions fail
-          try {
-            // Try to initialize the FatSecret service
-            final isInitialized = await _initializeFatSecretService();
-
-            // If initialization was successful, search for the barcode
-            if (isInitialized) {
-              final apiResults = await _fatSecretService.searchFoodsByBarcode(
-                barcode,
-              );
-
-              // Cache the results locally
-              for (final food in apiResults) {
-                await _foodsBox.put('food_${food.id}', food.toMap());
-              }
-
-              if (apiResults.isNotEmpty) {
-                return apiResults;
-              }
-            } else {
-              debugPrint(
-                'FatSecret service not initialized, skipping barcode search',
-              );
-            }
-          } catch (e) {
-            debugPrint('Error searching food by barcode from API: $e');
-            // Continue to use cached results or Firestore
-          }
+          debugPrint('REPOSITORY DEBUG: Direct API call failed: $e');
         }
       }
 
-      // If API search failed or returned no results, try Firestore
-      if (isConnected) {
+      // If still no results, try Firestore
+      if (results.isEmpty) {
         try {
-          final QuerySnapshot querySnapshot = await _firestore
-              .collection('foods')
+          debugPrint('FIRESTORE DEBUG: Searching Firestore as final attempt');
+          final querySnapshot = await _firestore
+              .collection(_foodsCollection)
               .where('barcode', isEqualTo: barcode)
               .limit(5)
               .get();
 
-          final List<FoodItem> results = querySnapshot.docs
-              .map(
-                (doc) => FoodItem.fromMap(doc.data() as Map<String, dynamic>),
-              )
+          debugPrint(
+              'FIRESTORE DEBUG: Found ${querySnapshot.docs.length} results in Firestore');
+
+          final firebaseFoods = querySnapshot.docs
+              .map((doc) => FoodItem.fromMap(doc.data()))
               .toList();
 
-          // Cache the results locally
-          for (final food in results) {
-            await _foodsBox.put('food_${food.id}', food.toMap());
-          }
+          results.addAll(firebaseFoods);
 
-          if (results.isNotEmpty) {
-            return results;
+          // Cache results
+          for (final food in firebaseFoods) {
+            await _foodsBox.put(_getKeyForFood(food), food.toMap());
           }
         } catch (e) {
-          debugPrint('Error searching food by barcode from Firestore: $e');
-          // Fall back to cached results if Firestore fails
+          debugPrint('FIRESTORE DEBUG: Error searching Firestore: $e');
         }
       }
 
-      // If we still have no results but have cached items, return those
-      if (cachedResults.isNotEmpty) {
-        return cachedResults;
-      }
-
-      // No results found
-      return [];
+      debugPrint('REPOSITORY DEBUG: Returning ${results.length} total results');
+      debugPrint('======================================================');
+      return results;
     } catch (e) {
-      debugPrint('Error in searchFoodByBarcode: $e');
-      return [];
+      debugPrint('CRITICAL ERROR in searchFoodByBarcode: $e');
+      debugPrint('======================================================');
+      rethrow; // Let the controller see the actual error
     }
   }
 

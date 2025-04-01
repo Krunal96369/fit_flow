@@ -57,10 +57,10 @@ async function getAccessToken() {
             throw new Error('Failed to get FatSecret credentials');
         }
 
-        // Request new token
+        // Request new token with barcode scope
         const tokenResponse = await axios.post(
             OAUTH_URL,
-            'grant_type=client_credentials&scope=basic',
+            'grant_type=client_credentials',
             {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
@@ -268,4 +268,94 @@ exports.searchFoodsHttp = functions.https.onRequest(async (req, res) => {
             return res.status(500).json({ error: 'Failed to search foods' });
         }
     });
+});
+
+/**
+ * Callable function to search foods by barcode in FatSecret API
+ */
+exports.searchFoodsByBarcode = functions.https.onCall(async (data, context) => {
+    console.log(`Barcode search request received: ${JSON.stringify(data)}`);
+    // Ensure user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'You must be signed in to use this feature');
+    }
+
+    try {
+        const { barcode, maxResults = 10 } = data;
+
+        if (!barcode || barcode.trim() === '') {
+            return { foods: { food: [] } };
+        }
+
+        console.log(`Searching food with barcode: "${barcode}"`);
+
+        // Get access token - this token must have "barcode" scope
+        const token = await getAccessToken();
+
+        // Step 1: Call FatSecret Barcode API to get food_id
+        console.log('Calling food.find_id_for_barcode API endpoint');
+        const barcodeResponse = await axios.get(BASE_URL, {
+            params: {
+                method: 'food.find_id_for_barcode',
+                format: 'json',
+                barcode: barcode
+            },
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        console.log(`Barcode API response: ${JSON.stringify(barcodeResponse.data)}`);
+
+        // Check if a food ID was found
+        if (!barcodeResponse.data.food_id) {
+            console.log('No food ID found for this barcode');
+            return { foods: { food: [] } };
+        }
+
+        const foodId = barcodeResponse.data.food_id.value || barcodeResponse.data.food_id;
+        console.log(`Found food ID: ${foodId} for barcode ${barcode}`);
+
+        // Step 2: Get detailed food information using the food ID
+        const foodResponse = await axios.get(BASE_URL, {
+            params: {
+                method: 'food.get.v4',
+                format: 'json',
+                food_id: foodId
+            },
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        console.log('Food details API response received');
+
+        // Convert single food to expected format (array with one item)
+        if (foodResponse.data.food) {
+            // Add barcode to the food object
+            const foodWithBarcode = {
+                ...foodResponse.data.food,
+                barcode: barcode
+            };
+
+            // Return in the format the app expects
+            return {
+                foods: {
+                    food: [foodWithBarcode]
+                }
+            };
+        }
+
+        return { foods: { food: [] } };
+    } catch (error) {
+        console.error('Error details:', error);
+
+        // Check if it's a 404 or specific API error related to barcode not found
+        if (error.response && error.response.status === 404) {
+            console.log('Barcode not found in FatSecret database');
+            return { foods: { food: [] } };
+        }
+
+        throw new functions.https.HttpsError('internal', 'Failed to search foods by barcode: ' + error.message);
+    }
 });
