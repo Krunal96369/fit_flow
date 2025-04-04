@@ -49,11 +49,12 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
   Future<void> _loadInitialData() async {
     try {
+      debugPrint('UI: Starting initial data load');
       final user = ref.read(authStateProvider).value;
       final userId = user?.uid;
 
       if (userId == null) {
-        // Safely handle case where user isn't authenticated yet
+        debugPrint('UI: No user ID found, showing sign in message');
         setState(() {
           _isLoading = false;
           _error = 'Please sign in to view your food items';
@@ -65,24 +66,28 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         _isLoading = true;
         _error = null;
       });
+      debugPrint('UI: Set loading state for initial data load');
 
       try {
-        // Handle each future separately to isolate errors
         List<FoodItem> recentFoods = [];
         List<FoodItem> favoriteFoods = [];
 
         try {
+          debugPrint('UI: Loading recent foods');
           recentFoods =
               await ref.read(foodControllerProvider).getRecentFoods(userId);
+          debugPrint('UI: Loaded ${recentFoods.length} recent foods');
         } catch (recentError) {
-          debugPrint('Error loading recent foods: $recentError');
+          debugPrint('UI: Error loading recent foods: $recentError');
         }
 
         try {
+          debugPrint('UI: Loading favorite foods');
           favoriteFoods =
               await ref.read(foodControllerProvider).getFavoriteFoods(userId);
+          debugPrint('UI: Loaded ${favoriteFoods.length} favorite foods');
         } catch (favoriteError) {
-          debugPrint('Error loading favorite foods: $favoriteError');
+          debugPrint('UI: Error loading favorite foods: $favoriteError');
         }
 
         if (mounted) {
@@ -91,8 +96,11 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
             _favoriteFoods = favoriteFoods;
             _isLoading = false;
           });
+          debugPrint(
+              'UI: Updated state with initial data - recent: ${_recentFoods.length}, favorites: ${_favoriteFoods.length}');
         }
       } catch (e) {
+        debugPrint('UI: Error in initial data load: $e');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -101,6 +109,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         }
       }
     } catch (e) {
+      debugPrint('UI: Critical error in initial data load: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -112,7 +121,14 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
   void _performSearch(String query) {
     try {
+      debugPrint('======================================================');
+      debugPrint('UI: Starting search with query: "$query"');
+      debugPrint(
+          'UI: Current state - isLoading: $_isLoading, hasSearched: $_hasSearched, error: $_error');
+      debugPrint('UI: Current search results count: ${_searchResults.length}');
+
       if (query.trim().isEmpty) {
+        debugPrint('UI: Empty query, clearing results');
         setState(() {
           _searchResults = [];
           _hasSearched = false;
@@ -126,36 +142,30 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         _hasSearched = true;
         _error = null;
       });
-
-      // Log that we're about to search
-      debugPrint('======================================================');
-      debugPrint('SEARCH SCREEN: Starting search for "$query"');
+      debugPrint(
+          'UI: Set loading state - isLoading: $_isLoading, hasSearched: $_hasSearched');
 
       _debounce.run(() async {
         try {
           debugPrint(
-              'SEARCH SCREEN: Search debounce complete, executing search for: ${query.trim()}');
-
-          // Critical: This is where the search begins - add breakpoint here
-          debugPrint(
-              'CRITICAL BREAKPOINT: About to call FoodController.searchFoodByName');
+              'UI: Debounce complete, executing search for: ${query.trim()}');
           final results = await ref
               .read(foodControllerProvider)
               .searchFoodByName(query.trim());
-          debugPrint(
-              'CRITICAL BREAKPOINT: FoodController.searchFoodByName returned ${results.length} results');
+          debugPrint('UI: Search complete, received ${results.length} results');
 
           if (mounted) {
             setState(() {
               _searchResults = results;
               _isLoading = false;
-              // Show a message if search completed successfully but returned no results
               _error =
                   results.isEmpty ? 'No foods found matching "$query"' : null;
             });
+            debugPrint(
+                'UI: Updated state - isLoading: $_isLoading, results: ${_searchResults.length}, error: $_error');
           }
         } catch (e) {
-          debugPrint('CRITICAL ERROR in _performSearch: $e');
+          debugPrint('UI: Error during search: $e');
           if (mounted) {
             setState(() {
               _isLoading = false;
@@ -178,13 +188,13 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
                 _error = 'Error searching foods: ${e.toString()}';
               }
             });
+            debugPrint('UI: Updated error state - error: $_error');
           }
         }
       });
       debugPrint('======================================================');
     } catch (e) {
-      // Handle any unexpected errors in the outer method
-      debugPrint('CRITICAL ERROR: Unexpected error in _performSearch: $e');
+      debugPrint('UI: Critical error in _performSearch: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -233,6 +243,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
   Widget _buildFoodItem(FoodItem food) {
     try {
+      debugPrint('UI: Building food item: ${food.name} ');
       return ListTile(
         title: Text(food.name),
         subtitle: Text(
@@ -242,7 +253,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         onTap: () => _selectFood(food),
       );
     } catch (e) {
-      // Fallback in case of errors with a specific food item
+      debugPrint('UI: Error building food item: $e');
       return ListTile(
         title: const Text('Food Item'),
         subtitle: const Text('Details not available'),
@@ -260,6 +271,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
   }
 
   Widget _buildErrorState() {
+    debugPrint('UI: Building error state - error: $_error');
     return SingleChildScrollView(
       child: Center(
         child: Padding(
@@ -272,17 +284,17 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
               Text(
                 _error ?? 'An error occurred',
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: Colors.grey[700]),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge
+                    ?.copyWith(color: Colors.grey[700]),
               ),
               if (_error?.contains('FatSecret API credentials') ?? false) ...[
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: () {
                     context.go(
-                      '/nutrition/add?date=${widget.date.toIso8601String()}',
-                    );
+                        '/nutrition/add?date=${widget.date.toIso8601String()}');
                   },
                   icon: const Icon(Icons.add),
                   label: const Text('Create Custom Food'),
@@ -296,6 +308,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
   }
 
   Widget _buildEmptySearchState() {
+    debugPrint('UI: Building empty search state');
     return SingleChildScrollView(
       child: Center(
         child: Padding(
@@ -321,8 +334,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
               OutlinedButton.icon(
                 onPressed: () {
                   context.go(
-                    '/nutrition/add?date=${widget.date.toIso8601String()}',
-                  );
+                      '/nutrition/add?date=${widget.date.toIso8601String()}');
                 },
                 icon: const Icon(Icons.add),
                 label: const Text('Create Custom Food'),
@@ -578,9 +590,16 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
   }
 
   Widget _buildSearchResults() {
+    debugPrint('UI: Building search results - count: ${_searchResults.length}');
+    debugPrint(
+        'UI: Search results: ${_searchResults.map((e) => e).join(', ')}');
     return ListView.builder(
       itemCount: _searchResults.length,
-      itemBuilder: (context, index) => _buildFoodItem(_searchResults[index]),
+      itemBuilder: (context, index) {
+        debugPrint(
+            'UI: Building food item at index $index: ${_searchResults[index].name}');
+        return _buildFoodItem(_searchResults[index]);
+      },
       padding: const EdgeInsets.symmetric(vertical: 8.0),
     );
   }
@@ -590,23 +609,26 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
       if (_recentFoods.isEmpty && _favoriteFoods.isEmpty && !_isLoading) {
         // Show placeholder when no suggestions available
         return const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.food_bank_outlined, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Start by searching for foods',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Use the search bar above or scan a barcode',
-                style: TextStyle(color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.food_bank_outlined, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Start by searching for foods',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Use the search bar above or scan a barcode',
+                  style: TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         );
       }
