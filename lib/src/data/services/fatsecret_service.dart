@@ -109,7 +109,6 @@ class FatSecretService {
           },
           body: {
             'grant_type': 'client_credentials',
-            'scope': 'basic',
           },
         );
 
@@ -178,6 +177,7 @@ class FatSecretService {
 
       if (response.statusCode == 200) {
         debugPrint('FatSecret: Received 200 response for "$query"');
+        debugPrint('FatSecret: Received response for "$response"');
 
         final Map<String, dynamic> data = json.decode(response.body);
 
@@ -389,26 +389,41 @@ class FatSecretService {
       if (food['food_description'] != null) {
         // Parse description for simple nutrition (used in search results)
         final description = food['food_description'] as String;
-        final caloriesMatch = RegExp(r'(\d+)kcal').firstMatch(description);
-        final proteinMatch =
-            RegExp(r'Protein: ([\d.]+)g').firstMatch(description);
-        final fatMatch = RegExp(r'Fat: ([\d.]+)g').firstMatch(description);
-        final carbsMatch = RegExp(r'Carbs: ([\d.]+)g').firstMatch(description);
+        debugPrint('FatSecret: Parsing description: $description');
+
+        // More flexible regex patterns that handle various formats
+        final caloriesMatch =
+            RegExp(r'(\d+)\s*(?:kcal|calories?)', caseSensitive: false)
+                .firstMatch(description);
+        final proteinMatch = RegExp(r'(?:protein|p):\s*([\d.]+)\s*(?:g|grams?)',
+                caseSensitive: false)
+            .firstMatch(description);
+        final fatMatch = RegExp(r'(?:fat|f):\s*([\d.]+)\s*(?:g|grams?)',
+                caseSensitive: false)
+            .firstMatch(description);
+        final carbsMatch = RegExp(
+                r'(?:carbs|carbohydrate|c):\s*([\d.]+)\s*(?:g|grams?)',
+                caseSensitive: false)
+            .firstMatch(description);
 
         if (caloriesMatch != null) {
           calories = int.tryParse(caloriesMatch.group(1) ?? '') ?? 0;
+          debugPrint('FatSecret: Parsed calories: $calories');
         }
 
         if (proteinMatch != null) {
           protein = double.tryParse(proteinMatch.group(1) ?? '') ?? 0.0;
+          debugPrint('FatSecret: Parsed protein: $protein');
         }
 
         if (fatMatch != null) {
           fat = double.tryParse(fatMatch.group(1) ?? '') ?? 0.0;
+          debugPrint('FatSecret: Parsed fat: $fat');
         }
 
         if (carbsMatch != null) {
           carbs = double.tryParse(carbsMatch.group(1) ?? '') ?? 0.0;
+          debugPrint('FatSecret: Parsed carbs: $carbs');
         }
 
         // Try to extract serving size from description

@@ -169,21 +169,25 @@ class FirebaseFoodRepository implements FoodRepository {
       // ALWAYS try Cloud Functions first (highest priority)
       try {
         debugPrint('======================================================');
-        debugPrint('CLOUD FUNCTIONS DEBUG: Attempting Cloud Functions search');
+        debugPrint('CLOUD FUNCTIONS DEBUG: Attempting Cloud Functions search with V3 API');
 
         // Remove rate limiting for testing
         debugPrint(
             'CLOUD FUNCTIONS DEBUG: Bypassing rate limiting for testing');
 
         // ADD BREAKPOINT HERE to confirm this is called
-        debugPrint('CRITICAL BREAKPOINT: About to call Cloud Functions');
+        debugPrint('CRITICAL BREAKPOINT: About to call Cloud Functions V3');
         final cloudFunctionsFoods = await _cloudFunctionsService.searchFoods(
           query,
           maxResults: limit,
+          pageNumber: 0,
+          includeFoodImages: true,
+          includeFoodAttributes: true,
+          includeSubCategories: true,
         );
 
         debugPrint(
-            'CLOUD FUNCTIONS DEBUG: Received ${cloudFunctionsFoods.length} results from Cloud Functions');
+            'CLOUD FUNCTIONS DEBUG: Received ${cloudFunctionsFoods.length} results from Cloud Functions V3');
 
         // Add results directly - don't filter for Cloud Functions priority
         results.addAll(cloudFunctionsFoods);
@@ -194,12 +198,12 @@ class FirebaseFoodRepository implements FoodRepository {
         }
 
         debugPrint(
-            'REPOSITORY DEBUG: Found ${results.length} results from Cloud Functions, returning');
+            'REPOSITORY DEBUG: Found ${results.length} results from Cloud Functions V3, returning');
         return results;
       } catch (e, stackTrace) {
-        debugPrint('CRITICAL ERROR: Cloud Functions call failed: $e');
+        debugPrint('CRITICAL ERROR: Cloud Functions V3 call failed: $e');
         debugPrint(
-            'REPOSITORY DEBUG: Entered catch block for Cloud Functions failure.');
+            'REPOSITORY DEBUG: Entered catch block for Cloud Functions V3 failure.');
         debugPrint('Stack trace: $stackTrace');
       }
 
@@ -320,7 +324,9 @@ class FirebaseFoodRepository implements FoodRepository {
       // If we have a connection, try to fetch using Cloud Functions
       if (isConnected) {
         try {
-          // Search using Firebase Cloud Functions
+          debugPrint('REPOSITORY DEBUG: Searching barcode using improved Cloud Function');
+
+          // Search using Firebase Cloud Functions with dedicated barcode endpoint
           final apiResults =
               await _cloudFunctionsService.searchFoodsByBarcode(barcode);
 
@@ -330,7 +336,10 @@ class FirebaseFoodRepository implements FoodRepository {
           }
 
           if (apiResults.isNotEmpty) {
+            debugPrint('REPOSITORY DEBUG: Found ${apiResults.length} results for barcode via Cloud Functions');
             return apiResults;
+          } else {
+            debugPrint('REPOSITORY DEBUG: No results found for barcode via Cloud Functions');
           }
         } catch (e) {
           debugPrint(
