@@ -15,7 +15,7 @@ class CloudFunctionsService {
   Future<List<FoodItem>> searchFoods(String query,
       {int maxResults = 50,
       int pageNumber = 0,
-      bool includeFoodImages = false,
+      bool includeFoodImages = true,
       bool includeFoodAttributes = false,
       bool includeSubCategories = false}) async {
     try {
@@ -23,7 +23,7 @@ class CloudFunctionsService {
       debugPrint(
           'CLOUD FUNCTIONS SERVICE: Starting API call to searchFoodsV3 cloud function');
       debugPrint(
-          'CLOUD FUNCTIONS SERVICE: Query: "$query", Max Results: $maxResults, Page: $pageNumber');
+          'CLOUD FUNCTIONS SERVICE: Query: "$query", Max Results: $maxResults, Page: $pageNumber, Include Images: $includeFoodImages');
 
       // Ensure query is not empty
       if (query.trim().isEmpty) {
@@ -180,57 +180,300 @@ class CloudFunctionsService {
     }
   }
 
+  /// Normalizes barcode to GTIN-13 format required by FatSecret API
+  /// Per FatSecret docs: "Barcodes must be specified as GTIN-13 numbers - a 13-digit number filled in with zeros for the spaces to the left.
+  /// UPC-A, EAN-13 and EAN-8 barcodes may be specified. UPC-E barcodes should be converted to their UPC-A equivalent
+  /// (and then specified as GTIN-13 numbers)."
+  String _normalizeBarcode(String barcode) {
+    debugPrint('CLOUD FUNCTIONS SERVICE: Normalizing barcode: $barcode');
+
+    // Remove any non-digit characters
+    barcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
+
+    // Handle empty or invalid barcodes
+    if (barcode.isEmpty) {
+      debugPrint('CLOUD FUNCTIONS SERVICE: Empty barcode provided');
+      return '';
+    }
+
+    // Check if it's a UPC-E code (8 digits with leading 0)
+    if (barcode.length == 8 && barcode.startsWith('0')) {
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Converting UPC-E to UPC-A: $barcode');
+
+      // Convert UPC-E to UPC-A (12 digits)
+      final String upcA = _convertUpcEToUpcA(barcode);
+      debugPrint('CLOUD FUNCTIONS SERVICE: Converted to UPC-A: $upcA');
+
+      // Convert UPC-A to GTIN-13 by adding leading 0
+      final normalizedBarcode = '0$upcA';
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Normalized UPC-E to GTIN-13: $normalizedBarcode');
+      return normalizedBarcode;
+    }
+
+    // Handle EAN-8 (8 digits without leading 0)
+    if (barcode.length == 8 && !barcode.startsWith('0')) {
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Converting EAN-8 to GTIN-13: $barcode');
+      // For EAN-8, add 5 leading zeros to get 13 digits
+      final normalizedBarcode = '00000$barcode';
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Normalized EAN-8 to GTIN-13: $normalizedBarcode');
+      return normalizedBarcode;
+    }
+
+    // Handle UPC-A (12 digits) - add single leading zero to make GTIN-13
+    if (barcode.length == 12) {
+      final normalizedBarcode = '0$barcode';
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Converted UPC-A (12-digit) to GTIN-13: $normalizedBarcode');
+      return normalizedBarcode;
+    }
+
+    // Handle EAN-13 / GTIN-13 (already 13 digits)
+    if (barcode.length == 13) {
+      debugPrint('CLOUD FUNCTIONS SERVICE: Barcode already in GTIN-13 format');
+      return barcode;
+    }
+
+    // Handle other unusual cases by padding with leading zeros to 13 digits
+    debugPrint(
+        'CLOUD FUNCTIONS SERVICE: Unusual barcode length (${barcode.length}), padding to 13 digits');
+    final normalizedBarcode = barcode.padLeft(13, '0');
+    debugPrint(
+        'CLOUD FUNCTIONS SERVICE: Normalized to GTIN-13: $normalizedBarcode');
+    return normalizedBarcode;
+  }
+
+  /// Converts UPC-E (8 digits) to UPC-A (12 digits)
+  /// Based on standard UPC-E to UPC-A conversion algorithm
+  String _convertUpcEToUpcA(String upcE) {
+    try {
+      // Ensure we have 8 digits (including check digit)
+      if (upcE.length != 8) {
+        return upcE.padLeft(12, '0'); // Invalid UPC-E, so just pad and return
+      }
+
+      // Extract the number system digit (should be 0 for UPC-E)
+      final numberSystem = upcE[0];
+      if (numberSystem != '0') {
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Warning - UPC-E should start with 0, got: $numberSystem');
+      }
+
+      // Extract code (6 digits + check digit)
+      final code = upcE.substring(1, 7);
+      final checkDigit = upcE[7];
+
+      // Use the last digit of the code (position 6) to determine conversion pattern
+      String manufacturer;
+      String product;
+
+      switch (code[5]) {
+        case '0':
+        case '1':
+        case '2':
+          // Manufacturer: first 2 digits + last digit of code + "00"
+          // Product: digits 3-5
+          manufacturer = '${code.substring(0, 2)}${code[5]}00';
+          product = code.substring(2, 5);
+          break;
+        case '3':
+          // Manufacturer: first 3 digits + "00"
+          // Product: digits 4-5
+          manufacturer = '${code.substring(0, 3)}00';
+          product = code.substring(3, 5);
+          break;
+        case '4':
+          // Manufacturer: first 4 digits + "0"
+          // Product: digit 5
+          manufacturer = '${code.substring(0, 4)}0';
+          product = code.substring(4, 5);
+          break;
+        default: // 5-9
+          // Manufacturer: first 5 digits
+          // Product: last digit of code
+          manufacturer = code.substring(0, 5);
+          product = code[5];
+          break;
+      }
+
+      // Combine to form UPC-A: NumberSystem + Manufacturer + Product + CheckDigit
+      final upcA = '$numberSystem$manufacturer$product$checkDigit';
+
+      // Ensure we have 12 digits for UPC-A
+      if (upcA.length != 12) {
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Error - Converted UPC-A has ${upcA.length} digits instead of 12');
+        return upcE.padLeft(
+            12, '0'); // Return padded original if conversion failed
+      }
+
+      return upcA;
+    } catch (e) {
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Error converting UPC-E to UPC-A: $e');
+      return upcE.padLeft(12, '0'); // Return padded original on error
+    }
+  }
+
   /// Search for food by barcode using FatSecret API's dedicated barcode endpoint
   Future<List<FoodItem>> searchFoodsByBarcode(String barcode) async {
     try {
       debugPrint('======================================================');
       debugPrint(
           'CLOUD FUNCTIONS SERVICE: Starting API call to searchFoodsByBarcode cloud function');
-      debugPrint('CLOUD FUNCTIONS SERVICE: Barcode: "$barcode"');
+      debugPrint('CLOUD FUNCTIONS SERVICE: Original barcode: "$barcode"');
+
+      // Normalize the barcode to GTIN-13 format as required by FatSecret API
+      final normalizedBarcode = _normalizeBarcode(barcode);
+      if (normalizedBarcode.isEmpty) {
+        debugPrint('CLOUD FUNCTIONS SERVICE: Invalid barcode provided');
+        return [];
+      }
+
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: Normalized barcode: "$normalizedBarcode"');
 
       // Call the searchFoodsByBarcode cloud function
       final HttpsCallable callable =
           _functions.httpsCallable('searchFoodsByBarcode');
-      final result = await callable.call({
-        'barcode': barcode,
-      });
 
-      // Parse the response
-      final data = result.data;
-
-      debugPrint('CLOUD FUNCTIONS SERVICE: Raw barcode response: $data');
-
-      if (data == null ||
-          data['foods'] == null ||
-          data['foods']['food'] == null) {
-        debugPrint('CLOUD FUNCTIONS SERVICE: No foods found for barcode');
-        return [];
-      }
-
-      final foodsData = data['foods']['food'];
-
-      // Handle single food item case (API returns object instead of array)
-      final List foodsList;
-      if (foodsData is List) {
-        foodsList = foodsData;
-        debugPrint(
-            'CLOUD FUNCTIONS SERVICE: Found ${foodsList.length} foods for barcode');
-      } else {
-        foodsList = [foodsData];
-        debugPrint('CLOUD FUNCTIONS SERVICE: Found 1 food for barcode');
-      }
-
-      // Convert to FoodItem objects
-      final foodItems =
-          foodsList.map<FoodItem>((item) => _parseFoodItem(item)).toList();
       debugPrint(
-          'CLOUD FUNCTIONS SERVICE: Successfully parsed ${foodItems.length} food items for barcode');
-      debugPrint('======================================================');
-      return foodItems;
+          'CLOUD FUNCTIONS SERVICE: Created HttpsCallable for searchFoodsByBarcode');
+
+      try {
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Calling searchFoodsByBarcode with normalized barcode: $normalizedBarcode');
+        final result = await callable.call({
+          'barcode': normalizedBarcode,
+        });
+        debugPrint('CLOUD FUNCTIONS SERVICE: Cloud function call successful!');
+
+        // Parse the response
+        final data = result.data;
+
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Raw barcode response data type: ${data.runtimeType}');
+        debugPrint('CLOUD FUNCTIONS SERVICE: Raw barcode response: $data');
+
+        // Add detailed debugging to inspect the structure
+        if (data is Map) {
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Data is a Map with keys: ${data.keys.join(', ')}');
+          if (data['foods'] != null) {
+            debugPrint('CLOUD FUNCTIONS SERVICE: Foods key exists');
+            if (data['foods'] is Map) {
+              debugPrint(
+                  'CLOUD FUNCTIONS SERVICE: Foods is a Map with keys: ${(data['foods'] as Map).keys.join(', ')}');
+            }
+          }
+        }
+
+        if (data == null) {
+          debugPrint('CLOUD FUNCTIONS SERVICE: Response data is null');
+          return [];
+        }
+
+        // Handle case where we get a food object directly (from food.get.v4 endpoint)
+        if (data['food'] != null && data['foods'] == null) {
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Direct food object found in response (likely from food.get.v4)');
+          // Convert Map<Object?, Object?> to Map<String, dynamic> safely
+          final Map<String, dynamic> foodMap =
+              _convertToStringDynamicMap(data['food'] as Map);
+          var foodItem = _parseFoodItem(foodMap);
+          // Use copyWith to add the barcode since it's a final field
+          foodItem = foodItem.copyWith(barcode: normalizedBarcode);
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Successfully parsed 1 food item directly');
+          return [foodItem];
+        }
+
+        // Handle standard foods array response
+        if (data['foods'] == null || data['foods']['food'] == null) {
+          debugPrint('CLOUD FUNCTIONS SERVICE: No foods found for barcode');
+          return [];
+        }
+
+        final foodsData = data['foods']['food'];
+
+        // Handle single food item case (API returns object instead of array)
+        final List foodsList;
+        if (foodsData is List) {
+          foodsList = foodsData;
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Found ${foodsList.length} foods for barcode');
+        } else {
+          foodsList = [foodsData];
+          debugPrint('CLOUD FUNCTIONS SERVICE: Found 1 food for barcode');
+        }
+
+        // Convert to FoodItem objects with safe type casting
+        final foodItems = foodsList.map<FoodItem>((item) {
+          // Convert Map<Object?, Object?> to Map<String, dynamic> safely
+          final Map<String, dynamic> foodMap =
+              _convertToStringDynamicMap(item as Map);
+          var foodItem = _parseFoodItem(foodMap);
+          // Use copyWith to add the barcode since it's a final field
+          foodItem = foodItem.copyWith(barcode: normalizedBarcode);
+          return foodItem;
+        }).toList();
+
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Successfully parsed ${foodItems.length} food items for barcode');
+        debugPrint('======================================================');
+        return foodItems;
+      } catch (innerError) {
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Error during Cloud Function call: $innerError');
+        debugPrint(
+            'CLOUD FUNCTIONS SERVICE: Error type: ${innerError.runtimeType}');
+        if (innerError is FirebaseFunctionsException) {
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Firebase Function error code: ${innerError.code}');
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Firebase Function error message: ${innerError.message}');
+          debugPrint(
+              'CLOUD FUNCTIONS SERVICE: Firebase Function error details: ${innerError.details}');
+        }
+        rethrow; // Rethrow to be caught by the outer catch block
+      }
     } catch (e) {
-      debugPrint('Error calling searchFoodsByBarcode cloud function: $e');
-      return [];
+      debugPrint(
+          'CLOUD FUNCTIONS SERVICE: CRITICAL ERROR in searchFoodsByBarcode: $e');
+      debugPrint('CLOUD FUNCTIONS SERVICE: Error type: ${e.runtimeType}');
+      debugPrint('======================================================');
+      return []; // Still return empty list as before to prevent app crashes
     }
+  }
+
+  /// Helper method to safely convert Map<Object?, Object?> to Map<String, dynamic>
+  Map<String, dynamic> _convertToStringDynamicMap(Map map) {
+    final Map<String, dynamic> result = {};
+
+    map.forEach((key, value) {
+      if (key is String) {
+        if (value is Map) {
+          // Recursively convert nested maps
+          result[key] = _convertToStringDynamicMap(value);
+        } else if (value is List) {
+          // Convert lists of maps if present
+          result[key] = value.map((item) {
+            if (item is Map) {
+              return _convertToStringDynamicMap(item);
+            }
+            return item;
+          }).toList();
+        } else {
+          // Directly assign primitives and other values
+          result[key] = value;
+        }
+      }
+    });
+
+    return result;
   }
 
   /// Helper method to parse food item from API response
@@ -260,6 +503,9 @@ class CloudFunctionsService {
       // Default serving size and unit
       double servingSize = _parseServingSize(data);
       String servingUnit = _parseServingUnit(data);
+
+      // Extract image URL if available
+      String? imageUrl = _parseImageUrl(data);
 
       // If nutrients or serving info is not available in standard fields, try to extract from description
       if (description.isNotEmpty &&
@@ -308,7 +554,7 @@ class CloudFunctionsService {
           ? '$servingSize $servingUnit'
           : '100 g'; // Default to 100g if no valid serving size
 
-      // Create FoodItem with nutritional information
+      // Create FoodItem with nutritional information and image URL
       return FoodItem(
         id: id,
         userId: '', // This will be set by the repository when used by the user
@@ -323,6 +569,7 @@ class CloudFunctionsService {
         category: category,
         isCustom: false,
         source: 'FatSecret API',
+        imageUrl: imageUrl,
       );
     } catch (e) {
       debugPrint('Error parsing food item: $e');
@@ -340,7 +587,38 @@ class CloudFunctionsService {
         category: 'Uncategorized',
         isCustom: false,
         source: 'Error',
+        imageUrl: null,
       );
+    }
+  }
+
+  /// Helper to extract image URL from food data
+  String? _parseImageUrl(Map<String, dynamic> data) {
+    try {
+      // Check for food images in the response
+      if (data['food_images'] != null) {
+        final images = data['food_images'];
+
+        // Check for standard image first (highest quality)
+        if (images['standard'] != null) {
+          return images['standard'].toString();
+        }
+
+        // Fall back to thumbnail if standard is not available
+        if (images['thumbnail'] != null) {
+          return images['thumbnail'].toString();
+        }
+      }
+
+      // If we have an image URL directly in the food object
+      if (data['food_image'] != null) {
+        return data['food_image'].toString();
+      }
+
+      return null;
+    } catch (e) {
+      debugPrint('Error parsing food image URL: $e');
+      return null;
     }
   }
 
@@ -390,9 +668,12 @@ class CloudFunctionsService {
         servingUnit = matchedServingUnit;
 
         // Clean up common unit variations
-        if (servingUnit == 'grams' || servingUnit == 'gram') servingUnit = 'g';
-        if (servingUnit == 'ml' || servingUnit == 'milliliters')
+        if (servingUnit == 'grams' || servingUnit == 'gram') {
+          servingUnit = 'g';
+        }
+        if (servingUnit == 'ml' || servingUnit == 'milliliters') {
           servingUnit = 'mL';
+        }
       } else {
         // Default to 100g if not specified
         servingSize = 100.0;

@@ -71,33 +71,32 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           ),
         ],
       ),
-      body:
-          _isScanning
-              ? Stack(
-                children: [
-                  MobileScanner(
-                    controller: controller,
-                    onDetect: (capture) {
-                      if (!_isScanning) return;
+      body: _isScanning
+          ? Stack(
+              children: [
+                MobileScanner(
+                  controller: controller,
+                  onDetect: (capture) {
+                    if (!_isScanning) return;
 
-                      final barcodes = capture.barcodes;
-                      if (barcodes.isNotEmpty) {
-                        final String? code = barcodes.first.rawValue;
-                        setState(() {
-                          _isScanning = false;
-                        });
-                        Navigator.of(context).pop(code);
-                      }
-                    },
-                  ),
-                  // Scan overlay with cutout
-                  CustomPaint(
-                    painter: ScannerOverlayPainter(),
-                    child: const SizedBox.expand(),
-                  ),
-                ],
-              )
-              : const Center(child: CircularProgressIndicator()),
+                    final barcodes = capture.barcodes;
+                    if (barcodes.isNotEmpty) {
+                      final String? code = barcodes.first.rawValue;
+                      setState(() {
+                        _isScanning = false;
+                      });
+                      Navigator.of(context).pop(code);
+                    }
+                  },
+                ),
+                // Scan overlay with cutout
+                CustomPaint(
+                  painter: ScannerOverlayPainter(),
+                  child: const SizedBox.expand(),
+                ),
+              ],
+            )
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 }
@@ -113,8 +112,8 @@ class ScannerOverlayPainter extends CustomPainter {
       height: scanAreaSize,
     );
 
-    final backgroundPath =
-        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final backgroundPath = Path()
+      ..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final scanArea = Path()..addRect(scanRect);
 

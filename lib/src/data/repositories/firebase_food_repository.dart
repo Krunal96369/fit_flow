@@ -169,7 +169,8 @@ class FirebaseFoodRepository implements FoodRepository {
       // ALWAYS try Cloud Functions first (highest priority)
       try {
         debugPrint('======================================================');
-        debugPrint('CLOUD FUNCTIONS DEBUG: Attempting Cloud Functions search with V3 API');
+        debugPrint(
+            'CLOUD FUNCTIONS DEBUG: Attempting Cloud Functions search with V3 API');
 
         // Remove rate limiting for testing
         debugPrint(
@@ -301,12 +302,33 @@ class FirebaseFoodRepository implements FoodRepository {
   @override
   Future<List<FoodItem>> searchFoodByBarcode(String barcode) async {
     try {
+      debugPrint('======================================================');
+      debugPrint(
+          'REPOSITORY: Starting searchFoodByBarcode with barcode: $barcode');
+
+      // Validate barcode
+      if (barcode.isEmpty) {
+        debugPrint('REPOSITORY: Empty barcode provided, returning empty list');
+        return [];
+      }
+
+      // Remove any non-digit characters
+      final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
+
+      if (cleanBarcode.isEmpty) {
+        debugPrint(
+            'REPOSITORY: Invalid barcode provided (no digits), returning empty list');
+        return [];
+      }
+      debugPrint('REPOSITORY: Cleaned barcode: $cleanBarcode');
+
       // First check if we have internet connection
       final isConnected = await _isConnected();
+      debugPrint('REPOSITORY: Internet connection check result: $isConnected');
 
       // Check if the barcode is already cached locally
       final cachedResults = _foodsBox.keys
-          .where((key) => key.toString().contains(barcode))
+          .where((key) => key.toString().contains(cleanBarcode))
           .map((key) => _foodsBox.get(key))
           .map(
             (data) => data != null
@@ -316,60 +338,89 @@ class FirebaseFoodRepository implements FoodRepository {
           .whereType<FoodItem>()
           .toList();
 
+      debugPrint(
+          'REPOSITORY: Found ${cachedResults.length} cached results for barcode: $cleanBarcode');
+
       // If we have cached results and no connection, return them
       if (cachedResults.isNotEmpty && !isConnected) {
+        debugPrint(
+            'REPOSITORY: Returning cached results due to no internet connection');
         return cachedResults;
       }
 
       // If we have a connection, try to fetch using Cloud Functions
       if (isConnected) {
         try {
-          debugPrint('REPOSITORY DEBUG: Searching barcode using improved Cloud Function');
+          debugPrint('REPOSITORY: Searching barcode using Cloud Functions...');
 
           // Search using Firebase Cloud Functions with dedicated barcode endpoint
           final apiResults =
-              await _cloudFunctionsService.searchFoodsByBarcode(barcode);
+              await _cloudFunctionsService.searchFoodsByBarcode(cleanBarcode);
+
+          debugPrint(
+              'REPOSITORY: Cloud Functions returned ${apiResults.length} results');
 
           // Cache the results locally
-          for (final food in apiResults) {
-            await _foodsBox.put('food_${food.id}', food.toMap());
-          }
-
           if (apiResults.isNotEmpty) {
-            debugPrint('REPOSITORY DEBUG: Found ${apiResults.length} results for barcode via Cloud Functions');
+            debugPrint(
+                'REPOSITORY: Caching ${apiResults.length} results from Cloud Functions');
+            for (final food in apiResults) {
+              await _foodsBox.put('food_${food.id}', food.toMap());
+            }
+
+            debugPrint(
+                'REPOSITORY: Found ${apiResults.length} results for barcode via Cloud Functions');
             return apiResults;
           } else {
-            debugPrint('REPOSITORY DEBUG: No results found for barcode via Cloud Functions');
+            debugPrint(
+                'REPOSITORY: No results found for barcode via Cloud Functions');
           }
         } catch (e) {
           debugPrint(
-              'Error searching food by barcode using Cloud Functions: $e');
+              'REPOSITORY: Error searching food by barcode using Cloud Functions:');
+          debugPrint('REPOSITORY: Error type: ${e.runtimeType}');
+          debugPrint('REPOSITORY: Error message: $e');
+
           // Fall back to direct API search if Cloud Functions fail
           try {
+            debugPrint(
+                'REPOSITORY: Falling back to direct FatSecret API search...');
             // Try to initialize the FatSecret service
             final isInitialized = await _initializeFatSecretService();
+            debugPrint(
+                'REPOSITORY: FatSecret service initialization: $isInitialized');
 
             // If initialization was successful, search for the barcode
             if (isInitialized) {
+              debugPrint(
+                  'REPOSITORY: Calling FatSecret service directly with barcode: $cleanBarcode');
               final apiResults = await _fatSecretService.searchFoodsByBarcode(
-                barcode,
+                cleanBarcode,
               );
 
-              // Cache the results locally
-              for (final food in apiResults) {
-                await _foodsBox.put('food_${food.id}', food.toMap());
-              }
+              debugPrint(
+                  'REPOSITORY: Direct FatSecret API returned ${apiResults.length} results');
 
+              // Cache the results locally
               if (apiResults.isNotEmpty) {
+                debugPrint(
+                    'REPOSITORY: Caching ${apiResults.length} results from direct API');
+                for (final food in apiResults) {
+                  await _foodsBox.put('food_${food.id}', food.toMap());
+                }
                 return apiResults;
+              } else {
+                debugPrint('REPOSITORY: No results found via direct API');
               }
             } else {
               debugPrint(
-                'FatSecret service not initialized, skipping barcode search',
+                'REPOSITORY: FatSecret service not initialized, skipping barcode search',
               );
             }
           } catch (e) {
-            debugPrint('Error searching food by barcode from API: $e');
+            debugPrint(
+                'REPOSITORY: Error searching food by barcode from direct API: $e');
+            debugPrint('REPOSITORY: Error type: ${e.runtimeType}');
             // Continue to use cached results or Firestore
           }
         }
