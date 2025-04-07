@@ -10,12 +10,17 @@ import '../../../services/barcode_scanner_service.dart';
 import '../application/food_controller.dart';
 import '../domain/food_item.dart';
 
-/// Screen for searching food items in the database
+/// Screen for searching food items in the nutrition database
+///
+/// Provides functionality to search by text and barcode, and displays
+/// recent/favorite foods when no search is active.
 class FoodSearchScreen extends ConsumerStatefulWidget {
-  /// Date for which the food will be added
+  /// Date for which the food will be added to the nutrition log
   final DateTime date;
 
-  /// Constructor
+  /// Creates a new food search screen
+  ///
+  /// [date] The date for which the food entry will be recorded
   const FoodSearchScreen({super.key, required this.date});
 
   @override
@@ -47,14 +52,16 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     super.dispose();
   }
 
+  /// Loads the user's recent and favorite foods
+  ///
+  /// This method is called on initialization and fetches the user's
+  /// recently used and favorite food items from the repository
   Future<void> _loadInitialData() async {
     try {
-      debugPrint('UI: Starting initial data load');
       final user = ref.read(authStateProvider).value;
       final userId = user?.uid;
 
       if (userId == null) {
-        debugPrint('UI: No user ID found, showing sign in message');
         setState(() {
           _isLoading = false;
           _error = 'Please sign in to view your food items';
@@ -66,28 +73,23 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         _isLoading = true;
         _error = null;
       });
-      debugPrint('UI: Set loading state for initial data load');
 
       try {
         List<FoodItem> recentFoods = [];
         List<FoodItem> favoriteFoods = [];
 
         try {
-          debugPrint('UI: Loading recent foods');
           recentFoods =
               await ref.read(foodControllerProvider).getRecentFoods(userId);
-          debugPrint('UI: Loaded ${recentFoods.length} recent foods');
         } catch (recentError) {
-          debugPrint('UI: Error loading recent foods: $recentError');
+          // Silently handle error loading recent foods
         }
 
         try {
-          debugPrint('UI: Loading favorite foods');
           favoriteFoods =
               await ref.read(foodControllerProvider).getFavoriteFoods(userId);
-          debugPrint('UI: Loaded ${favoriteFoods.length} favorite foods');
         } catch (favoriteError) {
-          debugPrint('UI: Error loading favorite foods: $favoriteError');
+          // Silently handle error loading favorite foods
         }
 
         if (mounted) {
@@ -96,11 +98,8 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
             _favoriteFoods = favoriteFoods;
             _isLoading = false;
           });
-          debugPrint(
-              'UI: Updated state with initial data - recent: ${_recentFoods.length}, favorites: ${_favoriteFoods.length}');
         }
       } catch (e) {
-        debugPrint('UI: Error in initial data load: $e');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -109,7 +108,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         }
       }
     } catch (e) {
-      debugPrint('UI: Critical error in initial data load: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -119,16 +117,12 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
+  /// Performs a food search with the given query
+  ///
+  /// [query] The search term to use for finding food items
   void _performSearch(String query) {
     try {
-      debugPrint('======================================================');
-      debugPrint('UI: Starting search with query: "$query"');
-      debugPrint(
-          'UI: Current state - isLoading: $_isLoading, hasSearched: $_hasSearched, error: $_error');
-      debugPrint('UI: Current search results count: ${_searchResults.length}');
-
       if (query.trim().isEmpty) {
-        debugPrint('UI: Empty query, clearing results');
         setState(() {
           _searchResults = [];
           _hasSearched = false;
@@ -142,17 +136,12 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         _hasSearched = true;
         _error = null;
       });
-      debugPrint(
-          'UI: Set loading state - isLoading: $_isLoading, hasSearched: $_hasSearched');
 
       _debounce.run(() async {
         try {
-          debugPrint(
-              'UI: Debounce complete, executing search for: ${query.trim()}');
           final results = await ref
               .read(foodControllerProvider)
               .searchFoodByName(query.trim());
-          debugPrint('UI: Search complete, received ${results.length} results');
 
           if (mounted) {
             setState(() {
@@ -161,11 +150,8 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
               _error =
                   results.isEmpty ? 'No foods found matching "$query"' : null;
             });
-            debugPrint(
-                'UI: Updated state - isLoading: $_isLoading, results: ${_searchResults.length}, error: $_error');
           }
         } catch (e) {
-          debugPrint('UI: Error during search: $e');
           if (mounted) {
             setState(() {
               _isLoading = false;
@@ -188,13 +174,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
                 _error = 'Error searching foods: ${e.toString()}';
               }
             });
-            debugPrint('UI: Updated error state - error: $_error');
           }
         }
       });
-      debugPrint('======================================================');
     } catch (e) {
-      debugPrint('UI: Critical error in _performSearch: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -204,6 +187,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
+  /// Handles changes to the search text field
+  ///
+  /// [text] The current text in the search field
   void _onSearchTextChanged(String text) {
     if (text.isEmpty) {
       setState(() {
@@ -214,6 +200,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
+  /// Selects a food item and navigates to the add nutrition screen
+  ///
+  /// [food] The food item to add to the nutrition log
   void _selectFood(FoodItem food) {
     try {
       final user = ref.read(authStateProvider).value;
@@ -232,7 +221,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         extra: food,
       );
     } catch (e) {
-      debugPrint('Error selecting food: $e');
       // Still navigate even if marking as recent fails
       context.go(
         '/nutrition/add?date=${widget.date.toIso8601String()}',
@@ -241,7 +229,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
-  // Enhanced search bar with barcode scanner
+  /// Builds the search bar with barcode scanner button
+  ///
+  /// @returns A widget containing the search field and barcode button
   Widget _buildSearchBar() {
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = colorScheme.brightness == Brightness.dark;
@@ -362,6 +352,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
+  /// Builds a food item card for display in lists
+  ///
+  /// [food] The food item to display
+  /// @returns A widget card displaying the food item's details
   Widget _buildFoodItem(FoodItem food) {
     try {
       final colorScheme = Theme.of(context).colorScheme;
@@ -491,7 +485,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
                           const SizedBox(height: 8),
 
-                          // Nutrition information with better contrast colors
+                          // Nutrition information
                           Wrap(
                             spacing: 6,
                             runSpacing: 6,
@@ -554,7 +548,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         ),
       );
     } catch (e) {
-      debugPrint('UI: Error building food item: $e');
       return ListTile(
         title: const Text('Food Item'),
         subtitle: const Text('Details not available'),
@@ -571,7 +564,13 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
-  /// Helper to build a nutrient chip
+  /// Builds a nutrient chip for displaying macronutrient information
+  ///
+  /// [label] The nutrient label (e.g., "P" for protein)
+  /// [value] The nutrient value with unit (e.g., "20g")
+  /// [lightModeBackground] Background color in light mode
+  /// [lightModeText] Text color in light mode
+  /// @returns A styled container displaying the nutrient information
   Widget _buildNutrientChip(String label, String value,
       Color lightModeBackground, Color lightModeText) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -583,7 +582,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
     if (isDarkMode) {
       // In dark mode, use more subtle, darker colors
-      // Use a uniform dark background (one level up from surface)
       chipBackground = colorScheme.surfaceContainerHighest;
 
       // Use different color for the border based on nutrient type
@@ -633,8 +631,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
+  /// Builds the empty search state UI
+  ///
+  /// @returns A widget displaying message when no search results are found
   Widget _buildEmptySearchState() {
-    debugPrint('UI: Building empty search state');
     final colorScheme = Theme.of(context).colorScheme;
     final isDarkMode = colorScheme.brightness == Brightness.dark;
 
@@ -693,8 +693,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
+  /// Builds the error state UI
+  ///
+  /// @returns A widget displaying error message when search fails
   Widget _buildErrorState() {
-    debugPrint('UI: Building error state - error: $_error');
     final colorScheme = Theme.of(context).colorScheme;
 
     return SingleChildScrollView(
@@ -743,6 +745,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
+  /// Builds the loading state UI
+  ///
+  /// @returns A widget displaying loading indicator during search
   Widget _buildLoadingState() {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -772,30 +777,22 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
-  /// Search for food items by barcode
+  /// Scans a barcode and searches for matching food items
   Future<void> _scanBarcode() async {
     setState(() {
       _isScanningBarcode = true;
       _error = null;
     });
 
-    debugPrint('====== BARCODE SCANNING START ======');
-
     try {
       // Get the barcode scanner service
       final barcodeScannerService = ref.read(barcodeScannerServiceProvider);
-      debugPrint(
-          'UI: Got barcode scanner service: ${barcodeScannerService.runtimeType}');
 
       // Scan the barcode
-      debugPrint('UI: Starting barcode scan...');
-
-      // Use the actual barcode scanner instead of hardcoded barcode
       final String? barcode = await barcodeScannerService.scanProductBarcode();
 
       // Handle null or empty barcode (user cancelled scan)
       if (barcode == null || barcode.isEmpty) {
-        debugPrint('UI: Barcode scan cancelled or returned null/empty value');
         if (mounted) {
           setState(() {
             _isScanningBarcode = false;
@@ -804,39 +801,12 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         return;
       }
 
-      // Log detailed barcode information
-      debugPrint('UI: Barcode scan successful');
-      debugPrint('UI: Barcode value: "$barcode"');
-      debugPrint('UI: Barcode length: ${barcode.length}');
-      debugPrint('UI: Barcode type: ${_getBarcodeType(barcode)}');
-
-      // Check if barcode contains only digits
-      final isNumeric = RegExp(r'^\d+$').hasMatch(barcode);
-      debugPrint('UI: Barcode is numeric only: $isNumeric');
-
-      if (!isNumeric) {
-        debugPrint(
-            'UI: WARNING - Barcode contains non-numeric characters which will be removed');
-      }
-
-      // Log the expected GTIN-13 format to verify conversion logic
-      final expectedGtin13 = _getExpectedGtin13(barcode);
-      debugPrint(
-          'UI: Expected GTIN-13 format (based on FatSecret docs): $expectedGtin13');
-
-      // Trace the barcode through the conversion chain
-      _traceBarcodeThroughServicesDebug(barcode);
-
       // Search for food by barcode using FoodController
-      debugPrint(
-          'UI: Calling FoodController.searchByBarcode with barcode: $barcode');
       final foodItems =
           await ref.read(foodControllerProvider).searchByBarcode(barcode);
-      debugPrint('UI: FoodController.searchByBarcode returned: $foodItems');
 
       // If a food item was found, select it
       if (foodItems != null) {
-        debugPrint('UI: Food item found, selecting it: ${foodItems.name}');
         if (mounted) {
           // Instead of directly navigating to add screen, show the food in search results
           setState(() {
@@ -860,46 +830,36 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         }
       } else if (mounted) {
         // Show message if no food found
-        debugPrint('UI: No food found for barcode: $barcode');
         setState(() {
           _error =
               'No food found with this barcode. Try searching by name or create a custom food.';
         });
       }
     } catch (e) {
-      debugPrint('UI: ERROR in _scanBarcode: $e');
-      debugPrint('UI: Error type: ${e.runtimeType}');
-
       if (mounted) {
         setState(() {
           if (e.toString().contains('FatSecret API credentials not set') ||
               e.toString().contains('fatsecret_api_key')) {
             _error =
                 'Online food database is currently unavailable. Try searching by name instead.';
-            debugPrint('UI: FatSecret API credentials error');
           } else if (e.toString().contains('permission') ||
               e.toString().contains('camera')) {
             _error =
                 'Camera permission is required to scan barcodes. Please enable it in your device settings.';
-            debugPrint('UI: Camera permission error');
           } else if (e.toString().contains('internet') ||
               e.toString().contains('connection') ||
               e.toString().contains('timeout')) {
             _error =
                 'No internet connection. Check your connection and try again.';
-            debugPrint('UI: Connection error');
           } else if (e.toString().contains('unauthenticated') ||
               e.toString().contains('authentication')) {
             _error = 'Authentication issue. Please log out and log in again.';
-            debugPrint('UI: Authentication error');
           } else {
             _error = 'Error scanning barcode: ${e.toString()}';
-            debugPrint('UI: General error: $_error');
           }
         });
       }
     } finally {
-      debugPrint('====== BARCODE SCANNING END ======');
       if (mounted) {
         setState(() {
           _isScanningBarcode = false;
@@ -908,41 +868,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
-  /// Helper method to determine the expected GTIN-13 format based on FatSecret docs
-  String _getExpectedGtin13(String barcode) {
-    // Remove any non-digit characters
-    final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
-
-    if (cleanBarcode.isEmpty) {
-      return 'Invalid barcode (empty after cleaning)';
-    }
-
-    // Handle UPC-E (8 digits with leading 0)
-    if (cleanBarcode.length == 8 && cleanBarcode.startsWith('0')) {
-      // This would require conversion to UPC-A first according to standard algorithm
-      return 'UPC-E requires conversion to UPC-A first, then adding leading 0';
-    }
-
-    // Handle EAN-8 (8 digits without leading 0)
-    if (cleanBarcode.length == 8 && !cleanBarcode.startsWith('0')) {
-      return '00000$cleanBarcode'; // Add 5 leading zeros
-    }
-
-    // Handle UPC-A (12 digits)
-    if (cleanBarcode.length == 12) {
-      return '0$cleanBarcode'; // Add 1 leading zero
-    }
-
-    // Handle EAN-13 (already 13 digits)
-    if (cleanBarcode.length == 13) {
-      return cleanBarcode; // Already in correct format
-    }
-
-    // Other unusual cases
-    return cleanBarcode.padLeft(13, '0'); // Pad to 13 digits
-  }
-
-  /// Helper method to determine barcode type based on length
+  /// Determines the barcode type based on its length
+  ///
+  /// [barcode] The barcode string to analyze
+  /// @returns A string describing the barcode format
   String _getBarcodeType(String barcode) {
     // Clean barcode (digits only)
     final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
@@ -963,80 +892,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
-  /// Helper method to trace barcode through various service normalizations
-  void _traceBarcodeThroughServicesDebug(String barcode) {
-    if (barcode.isEmpty) {
-      debugPrint('UI DEBUG TRACE: Empty barcode provided');
-      return;
-    }
-
-    // Step 1: Clean the barcode (digits only)
-    final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
-    debugPrint(
-        'UI DEBUG TRACE: Step 1 - Clean barcode (digits only): "$cleanBarcode"');
-
-    // Step 2: Normalize based on barcode type
-    String normalizedBarcode = cleanBarcode;
-
-    // Handle UPC-E (8 digits with leading 0)
-    if (cleanBarcode.length == 8 && cleanBarcode.startsWith('0')) {
-      debugPrint('UI DEBUG TRACE: Step 2a - Detected UPC-E format');
-      // Convert UPC-E to UPC-A using simplified algorithm for tracing
-      String upcA = cleanBarcode;
-
-      // Get the last digit for the conversion rule
-      final lastDigit = cleanBarcode[7];
-
-      if (lastDigit == '0' || lastDigit == '1' || lastDigit == '2') {
-        upcA =
-            '${cleanBarcode.substring(0, 3)}${cleanBarcode[7]}0000${cleanBarcode.substring(3, 6)}${cleanBarcode[7]}';
-      } else if (lastDigit == '3') {
-        upcA =
-            '${cleanBarcode.substring(0, 4)}00000${cleanBarcode.substring(4, 6)}${cleanBarcode[7]}';
-      } else if (lastDigit == '4') {
-        upcA =
-            '${cleanBarcode.substring(0, 5)}00000${cleanBarcode.substring(5, 6)}${cleanBarcode[7]}';
-      } else {
-        upcA = '${cleanBarcode.substring(0, 6)}0000${cleanBarcode[7]}';
-      }
-      debugPrint('UI DEBUG TRACE: Step 2b - Converted to UPC-A: "$upcA"');
-
-      // Convert UPC-A to GTIN-13
-      normalizedBarcode = '0$upcA';
-      debugPrint(
-          'UI DEBUG TRACE: Step 2c - GTIN-13 from UPC-E: "$normalizedBarcode"');
-    }
-    // Handle EAN-8 (8 digits without leading 0)
-    else if (cleanBarcode.length == 8 && !cleanBarcode.startsWith('0')) {
-      debugPrint('UI DEBUG TRACE: Step 2 - Detected EAN-8 format');
-      normalizedBarcode = '00000$cleanBarcode';
-      debugPrint(
-          'UI DEBUG TRACE: Step 2 - GTIN-13 from EAN-8: "$normalizedBarcode"');
-    }
-    // Handle UPC-A (12 digits)
-    else if (cleanBarcode.length == 12) {
-      debugPrint('UI DEBUG TRACE: Step 2 - Detected UPC-A format');
-      normalizedBarcode = '0$cleanBarcode';
-      debugPrint(
-          'UI DEBUG TRACE: Step 2 - GTIN-13 from UPC-A: "$normalizedBarcode"');
-    }
-    // Handle EAN-13 (already 13 digits)
-    else if (cleanBarcode.length == 13) {
-      debugPrint('UI DEBUG TRACE: Step 2 - Already in GTIN-13 format');
-    }
-    // Handle other cases
-    else {
-      debugPrint(
-          'UI DEBUG TRACE: Step 2 - Unusual barcode length (${cleanBarcode.length})');
-      normalizedBarcode = cleanBarcode.padLeft(13, '0');
-      debugPrint(
-          'UI DEBUG TRACE: Step 2 - Padded to GTIN-13: "$normalizedBarcode"');
-    }
-
-    debugPrint(
-        'UI DEBUG TRACE: Final normalized barcode: "$normalizedBarcode"');
-  }
-
+  /// Builds the main widget
+  ///
+  /// @returns The composed screen widget
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
@@ -1044,10 +902,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
       body: FocusScope(
         child: Column(
           children: [
-            // Extracted search bar to a separate method
+            // Search bar at the top
             _buildSearchBar(),
 
-            // Rest of the existing content
+            // Main content area
             Expanded(
               child: MediaQuery.removePadding(
                 context: context,
@@ -1067,9 +925,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     );
   }
 
+  /// Builds the food list based on current state
+  ///
+  /// @returns A widget displaying either search results or suggested foods
   Widget _buildFoodList() {
-    debugPrint('UI: Building food list - count: ${_searchResults.length}');
-
     // If we have an active search, show search results
     if (_hasSearched) {
       return ListView.builder(
@@ -1084,6 +943,9 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     }
   }
 
+  /// Builds the initial suggestions UI with recent and favorite foods
+  ///
+  /// @returns A widget displaying recent and favorite foods or an empty state
   Widget _buildInitialSuggestions() {
     try {
       final colorScheme = Theme.of(context).colorScheme;
@@ -1221,7 +1083,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         ],
       );
     } catch (e) {
-      debugPrint('Error building initial suggestions: $e');
       // Fallback widget in case of errors
       final colorScheme = Theme.of(context).colorScheme;
 
@@ -1261,12 +1122,24 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 }
 
 /// Utility class for debouncing API calls
+///
+/// Delays execution of the provided action to avoid excessive API calls
+/// during rapid user input like typing in a search field
 class Debouncer {
+  /// The delay in milliseconds before executing the action
   final int milliseconds;
+
+  /// The timer that tracks the delay
   Timer? _timer;
 
+  /// Creates a new debouncer with the specified delay
+  ///
+  /// [milliseconds] The delay before executing the action
   Debouncer({required this.milliseconds});
 
+  /// Runs the provided action after the delay, canceling any pending action
+  ///
+  /// [action] The callback to execute after the delay
   void run(VoidCallback action) {
     _timer?.cancel();
     _timer = Timer(Duration(milliseconds: milliseconds), action);
