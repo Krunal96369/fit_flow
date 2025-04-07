@@ -179,6 +179,23 @@ function parseFoodItem(data) {
         // Extract food type or category
         const category = data.food_type?.toString() || 'Uncategorized';
 
+        // Extract image URLs if available
+        let imageUrl = null;
+        if (data.food_images) {
+            // Try to get standard image first
+            if (data.food_images.standard) {
+                imageUrl = data.food_images.standard;
+            }
+            // Fall back to thumbnail
+            else if (data.food_images.thumbnail) {
+                imageUrl = data.food_images.thumbnail;
+            }
+        }
+        // Try to get single food_image if the detailed structure isn't available
+        else if (data.food_image) {
+            imageUrl = data.food_image;
+        }
+
         // Initialize nutrition values
         let servingSize = '100 g';  // Default value
         let calories = 0;
@@ -255,7 +272,8 @@ function parseFoodItem(data) {
             category,
             isCustom: false,
             source: 'FatSecret API',
-            url
+            url,
+            imageUrl
         };
     } catch (error) {
         console.error('Error parsing food item:', error, 'data:', JSON.stringify(data));
@@ -272,7 +290,8 @@ function parseFoodItem(data) {
             carbs: 0,
             category: data.food_type?.toString() || 'Uncategorized',
             isCustom: false,
-            source: 'FatSecret API'
+            source: 'FatSecret API',
+            imageUrl: null
         };
     }
 }
@@ -500,7 +519,12 @@ exports.searchFoodsByBarcode = onCall({
 
         // Check if we got a valid food_id from the barcode search
         if (response.data.food_id) {
-            const foodId = response.data.food_id;
+            // Extract the food ID correctly based on the response format
+            // The API returns either { food_id: "123" } or { food_id: { value: "123" }}
+            const foodId = typeof response.data.food_id === 'object' ?
+                response.data.food_id.value :
+                response.data.food_id;
+
             console.log(`Found food ID ${foodId} for barcode ${barcode}, now fetching full details`);
 
             // Now fetch the complete food details using the ID
@@ -516,19 +540,21 @@ exports.searchFoodsByBarcode = onCall({
             });
 
             console.log(`Food details retrieved for ID ${foodId}`);
+            console.log(`Food data: ${JSON.stringify(foodResponse.data)}`);
 
-            // Create a properly formatted response
-            if (foodResponse.data.food) {
-                return deepStringifyKeys({
-                    foods: {
-                        food: [foodResponse.data.food],
-                        max_results: 1,
-                        total_results: 1,
-                        page_number: 1,
-                        search_expression: barcode
-                    }
-                });
+            // Create a search-like response structure with the single food item
+            const foodData = foodResponse.data.food;
+
+            // Add barcode to the food data
+            if (foodData) {
+                foodData.barcode = barcode;
             }
+
+            // Return the food data directly instead of wrapping it in a search response
+            console.log(`Returning food details directly for ID ${foodId}`);
+            return deepStringifyKeys({
+                food: foodData  // This is what the client is expecting for detailed food data
+            });
         }
 
         // If the specific barcode endpoint failed or didn't return a food_id,
@@ -547,7 +573,25 @@ exports.searchFoodsByBarcode = onCall({
         });
 
         console.log('Fallback search response received');
-        return normalizeSearchResponse(searchResponse.data, barcode);
+
+        // Process the search response
+        const normalizedResponse = normalizeSearchResponse(searchResponse.data, barcode);
+
+        // Add barcode to all food items
+        if (normalizedResponse.foods && normalizedResponse.foods.food) {
+            let foodList = normalizedResponse.foods.food;
+            if (!Array.isArray(foodList)) {
+                foodList = [foodList];
+            }
+
+            foodList.forEach(food => {
+                if (food) {
+                    food.barcode = barcode;
+                }
+            });
+        }
+
+        return normalizedResponse;
 
     } catch (error) {
         console.error('Error details:', error);
@@ -628,27 +672,6 @@ exports.searchFoodsV3 = onCall({
         }
 
         console.log('OAuth token obtained successfully, calling FatSecret API v3');
-
-        // Try a simple v1 search first to verify API is working
-        try {
-            console.log('Trying simple search first to verify API is working');
-            const testResponse = await axios.get(BASE_URL, {
-                params: {
-                    method: 'foods.search',
-                    format: 'json',
-                    search_expression: 'apple',
-                    max_results: 5
-                },
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            console.log(`Test search response status: ${testResponse.status}`);
-            console.log(`Test search has results: ${!!(testResponse.data?.foods?.food)}`);
-        } catch (testError) {
-            console.log(`Test search failed: ${testError.message}`);
-        }
 
         // Build parameters for the API call
         const params = {

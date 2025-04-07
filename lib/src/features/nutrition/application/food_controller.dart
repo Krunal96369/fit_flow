@@ -109,29 +109,98 @@ class FoodController {
   /// Search for food by a specific barcode
   Future<FoodItem?> searchByBarcode(String barcode) async {
     try {
+      debugPrint('========================================');
+      debugPrint(
+          'FOOD CONTROLLER: searchByBarcode START - barcode: "$barcode"');
+
+      if (barcode.isEmpty) {
+        debugPrint('FOOD CONTROLLER: Empty barcode provided, returning null');
+        return null;
+      }
+
+      // Log barcode properties
+      debugPrint('FOOD CONTROLLER: Barcode length: ${barcode.length}');
+      debugPrint(
+          'FOOD CONTROLLER: Barcode type: ${_getBarcodeTypeDebug(barcode)}');
+
+      // Clean the barcode (remove non-digits)
+      final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
+      if (cleanBarcode != barcode) {
+        debugPrint(
+            'FOOD CONTROLLER: Cleaned barcode (digits only): "$cleanBarcode"');
+      }
+
+      // Show expected GTIN-13 format
+      if (cleanBarcode.length == 12) {
+        debugPrint(
+            'FOOD CONTROLLER: This is a UPC-A barcode, should be converted to GTIN-13 by adding leading 0');
+      }
+
       // Search for the food with this barcode
+      debugPrint('FOOD CONTROLLER: Calling repository.searchFoodByBarcode');
       final foodItems = await foodRepository.searchFoodByBarcode(barcode);
 
+      debugPrint(
+          'FOOD CONTROLLER: Repository returned ${foodItems.length} items');
+
       // Return the first match if found, otherwise null
-      return foodItems.isNotEmpty ? foodItems.first : null;
+      if (foodItems.isNotEmpty) {
+        debugPrint(
+            'FOOD CONTROLLER: Returning first food item: ${foodItems.first.name}');
+        return foodItems.first;
+      } else {
+        debugPrint(
+            'FOOD CONTROLLER: No food items found for barcode "$barcode"');
+        return null;
+      }
     } catch (e) {
-      debugPrint('Error in searchByBarcode: $e');
+      debugPrint('FOOD CONTROLLER: Error in searchByBarcode: $e');
+      debugPrint('FOOD CONTROLLER: Error type: ${e.runtimeType}');
 
       // Handle specific error cases
       final errorMessage = e.toString().toLowerCase();
       if (errorMessage.contains('api credentials not') ||
           errorMessage.contains('api key') ||
           errorMessage.contains('unauthorized')) {
-        debugPrint('FatSecret API credential issue in barcode search: $e');
+        debugPrint(
+            'FOOD CONTROLLER: FatSecret API credential issue in barcode search: $e');
         // Return null but don't throw, UI can handle null result
       } else if (errorMessage.contains('internet') ||
           errorMessage.contains('timeout') ||
           errorMessage.contains('connection')) {
-        debugPrint('Connection issue while scanning barcode: $e');
+        debugPrint(
+            'FOOD CONTROLLER: Connection issue while scanning barcode: $e');
         // Return null but don't throw, UI can handle null result
+      } else if (errorMessage.contains('unauthenticated') ||
+          errorMessage.contains('authentication') ||
+          errorMessage.contains('auth')) {
+        debugPrint(
+            'FOOD CONTROLLER: Authentication issue with Cloud Functions: $e');
       }
 
+      debugPrint('========================================');
       return null;
+    }
+  }
+
+  /// Helper method to determine barcode type based on length for debugging
+  String _getBarcodeTypeDebug(String barcode) {
+    // Clean barcode (digits only)
+    final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
+
+    switch (cleanBarcode.length) {
+      case 8:
+        return cleanBarcode.startsWith('0')
+            ? 'UPC-E (8 digits)'
+            : 'EAN-8 (8 digits)';
+      case 12:
+        return 'UPC-A (12 digits)';
+      case 13:
+        return 'EAN-13/GTIN-13 (13 digits)';
+      case 14:
+        return 'GTIN-14 (14 digits)';
+      default:
+        return 'Unknown format (${cleanBarcode.length} digits)';
     }
   }
 
