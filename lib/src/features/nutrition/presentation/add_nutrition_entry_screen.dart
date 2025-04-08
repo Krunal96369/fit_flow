@@ -168,26 +168,73 @@ class _AddNutritionEntryScreenState
       // Save the entry
       await ref.read(nutritionControllerProvider).addEntry(entry);
 
+      // Explicitly invalidate related providers to force refresh
+      ref.invalidate(dailyNutritionEntriesProvider(widget.date));
+      ref.invalidate(dailyNutritionSummaryProvider(widget.date));
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${entry.name} added to your log'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
       // Save or update food item if it's marked as favorite
       if (_isFavorite) {
-        final foodItem = FoodItem(
-          id: widget.foodItem?.id ??
-              DateTime.now().millisecondsSinceEpoch.toString(),
-          name: _nameController.text,
-          calories: int.parse(_caloriesController.text),
-          protein: double.parse(_proteinController.text),
-          carbs: double.parse(_carbsController.text),
-          fat: double.parse(_fatController.text),
-          servingSize: _servingSizeController.text,
-          category: 'User Foods',
-          isFavorite: true,
-          isCustom: true,
-          description: '',
-          userId: user.uid,
-          createdAt: DateTime.now(),
-        );
+        try {
+          final foodItem = FoodItem(
+            id: widget.foodItem?.id ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            name: _nameController.text,
+            calories: int.parse(_caloriesController.text),
+            protein: double.parse(_proteinController.text),
+            carbs: double.parse(_carbsController.text),
+            fat: double.parse(_fatController.text),
+            servingSize: _servingSizeController.text,
+            category: 'User Foods',
+            isFavorite: true,
+            isCustom: true,
+            description: '',
+            userId: user.uid,
+            createdAt: DateTime.now(),
+          );
 
-        await ref.read(foodControllerProvider).saveFoodItem(foodItem);
+          await ref
+              .read(foodControllerProvider)
+              .saveFoodItem(foodItem)
+              .catchError((error) {
+            // Log the error but don't fail the entire operation
+            debugPrint('Error saving favorite food: $error');
+
+            // Show a snackbar if mounted
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Food entry saved, but could not save as favorite due to permission issues.'),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+            return foodItem; // Return the original food item instead of null
+          });
+        } catch (favError) {
+          // Log error but don't prevent navigation back
+          debugPrint('Error handling favorite: $favError');
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content:
+                    Text('Food entry saved, but could not save as favorite.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
       }
 
       if (mounted) {

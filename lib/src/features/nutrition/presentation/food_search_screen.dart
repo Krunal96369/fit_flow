@@ -209,10 +209,17 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
       final userId = user?.uid;
 
       if (userId != null && food.id.isNotEmpty) {
-        // Mark as recently used
+        // Mark as recently used, but don't wait for it to complete
+        // and handle errors silently to avoid blocking the navigation
         ref
             .read(foodControllerProvider)
-            .markFoodAsRecentlyUsed(userId, food.id);
+            .markFoodAsRecentlyUsed(userId, food.id)
+            .catchError((error) {
+          // Silently log the error but allow navigation to continue
+          debugPrint(
+              'Error marking food as recently used: ${error.toString()}');
+          return null; // Return null to satisfy the Future
+        });
       }
 
       // Navigate to add nutrition entry screen with selected food
@@ -221,7 +228,8 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
         extra: food,
       );
     } catch (e) {
-      // Still navigate even if marking as recent fails
+      // Log the error but still navigate
+      debugPrint('Error in _selectFood: ${e.toString()}');
       context.go(
         '/nutrition/add?date=${widget.date.toIso8601String()}',
         extra: food,
@@ -636,7 +644,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
   /// @returns A widget displaying message when no search results are found
   Widget _buildEmptySearchState() {
     final colorScheme = Theme.of(context).colorScheme;
-    final isDarkMode = colorScheme.brightness == Brightness.dark;
 
     return SingleChildScrollView(
       child: Center(
@@ -865,30 +872,6 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
           _isScanningBarcode = false;
         });
       }
-    }
-  }
-
-  /// Determines the barcode type based on its length
-  ///
-  /// [barcode] The barcode string to analyze
-  /// @returns A string describing the barcode format
-  String _getBarcodeType(String barcode) {
-    // Clean barcode (digits only)
-    final cleanBarcode = barcode.replaceAll(RegExp(r'[^\d]'), '');
-
-    switch (cleanBarcode.length) {
-      case 8:
-        return cleanBarcode.startsWith('0')
-            ? 'UPC-E (8 digits)'
-            : 'EAN-8 (8 digits)';
-      case 12:
-        return 'UPC-A (12 digits)';
-      case 13:
-        return 'EAN-13/GTIN-13 (13 digits)';
-      case 14:
-        return 'GTIN-14 (14 digits)';
-      default:
-        return 'Unknown format (${cleanBarcode.length} digits)';
     }
   }
 

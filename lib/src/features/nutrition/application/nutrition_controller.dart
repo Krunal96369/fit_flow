@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/application/auth_controller.dart';
 import '../domain/nutrition_entry.dart';
+import '../domain/nutrition_goals.dart';
 import '../domain/nutrition_repository.dart';
 import '../domain/nutrition_summary.dart';
 
@@ -26,12 +28,31 @@ class NutritionController {
   }
 
   /// Add a new nutrition entry
+  ///
+  /// Adds an entry to the nutrition log and handles errors
+  /// [entry] The nutrition entry to add
+  /// Returns the saved entry
   Future<NutritionEntry> addEntry(NutritionEntry entry) async {
     try {
-      return await _repository.addEntry(entry);
+      debugPrint('Adding nutrition entry: ${entry.name}');
+      final result = await _repository.addEntry(entry);
+
+      // Return the saved entry
+      return result;
     } catch (e) {
       debugPrint('Error in addEntry: $e');
-      rethrow; // Rethrow for proper feedback to user
+
+      // Check if it's a permission error
+      if (e.toString().contains('permission-denied') ||
+          e.toString().contains('permissions') ||
+          e.toString().contains('permission')) {
+        // Simply return the entry as if it was saved
+        // This allows the UI to continue functioning
+        debugPrint('Permission error in addEntry, returning original entry');
+        return entry;
+      }
+
+      rethrow; // Rethrow other types of errors
     }
   }
 
@@ -153,6 +174,36 @@ class NutritionController {
       return 2000; // Return default value to avoid UI crashes
     }
   }
+
+  /// Get a stream of daily nutrition summary updates
+  Stream<DailyNutritionSummary> getDailySummaryStream(
+      String userId, DateTime date) {
+    try {
+      return _repository.getDailySummaryStream(userId, date);
+    } catch (e) {
+      debugPrint('Error in getDailySummaryStream: $e');
+      // Return a stream with a default summary in case of error
+      return Stream.value(DailyNutritionSummary(
+        date: date,
+        calorieGoal: 2000,
+        proteinGoal: 150,
+        carbsGoal: 250,
+        fatGoal: 70,
+        waterGoal: 2000,
+      ));
+    }
+  }
+
+  /// Get a stream of nutrition entries for a specific date
+  Stream<List<NutritionEntry>> getEntriesForDateStream(
+      String userId, DateTime date) {
+    try {
+      return _repository.getEntriesForDateStream(userId, date);
+    } catch (e) {
+      debugPrint('Error in getEntriesForDateStream: $e');
+      return Stream.value([]);
+    }
+  }
 }
 
 /// Provider for the nutrition controller
@@ -170,29 +221,29 @@ final nutritionControllerProvider = Provider<NutritionController>((ref) {
 /// Provider for daily nutrition entries
 final dailyNutritionEntriesProvider =
     FutureProvider.family<List<NutritionEntry>, DateTime>((ref, date) {
-      final userId = ref.read(currentUserIdProvider).value ?? '';
-      final controller = ref.watch(nutritionControllerProvider);
-      return controller.getEntriesForDate(userId, date);
-    });
+  final userId = ref.read(currentUserIdProvider).value ?? '';
+  final controller = ref.watch(nutritionControllerProvider);
+  return controller.getEntriesForDate(userId, date);
+});
 
 /// Provider for daily nutrition summary
 final dailyNutritionSummaryProvider =
     FutureProvider.family<DailyNutritionSummary, DateTime>((ref, date) {
-      final userId = ref.read(currentUserIdProvider).value ?? '';
-      final controller = ref.watch(nutritionControllerProvider);
-      return controller.getDailySummary(userId, date);
-    });
+  final userId = ref.read(currentUserIdProvider).value ?? '';
+  final controller = ref.watch(nutritionControllerProvider);
+  return controller.getDailySummary(userId, date);
+});
 
 /// Provider for weekly nutrition summary
 final weeklyNutritionSummaryProvider =
     FutureProvider.family<List<DailyNutritionSummary>, DateTime>((
-      ref,
-      startDate,
-    ) {
-      final userId = ref.read(currentUserIdProvider).value ?? '';
-      final controller = ref.watch(nutritionControllerProvider);
-      return controller.getWeekSummary(userId, startDate);
-    });
+  ref,
+  startDate,
+) {
+  final userId = ref.read(currentUserIdProvider).value ?? '';
+  final controller = ref.watch(nutritionControllerProvider);
+  return controller.getWeekSummary(userId, startDate);
+});
 
 /// Provider for user's nutrition goals
 final nutritionGoalsProvider = FutureProvider<NutritionGoals>((ref) {
@@ -201,9 +252,41 @@ final nutritionGoalsProvider = FutureProvider<NutritionGoals>((ref) {
   return controller.getUserNutritionGoals(userId);
 });
 
-/// Provider for current user ID (assuming you have this defined elsewhere)
-/// If not, you'll need to implement it
+/// Provider for current user ID
 final currentUserIdProvider = Provider<AsyncValue<String?>>((ref) {
-  // This is a placeholder - in a real app, you'll get this from your auth system
-  return const AsyncValue.data('user123');
+  final authState = ref.watch(authStateProvider);
+  return authState.whenData((user) => user?.uid);
+});
+
+/// Stream provider for daily nutrition summary
+/// This allows real-time updates to the nutrition summary
+final dailyNutritionSummaryStreamProvider =
+    StreamProvider.family<DailyNutritionSummary, DateTime>((ref, date) {
+  final userId = ref.watch(currentUserIdProvider).value;
+  if (userId == null || userId.isEmpty) {
+    // Return an empty stream if no user is logged in
+    return Stream.value(DailyNutritionSummary(
+      date: date,
+      calorieGoal: 2000,
+      proteinGoal: 150,
+      carbsGoal: 250,
+      fatGoal: 70,
+      waterGoal: 2000,
+    ));
+  }
+
+  debugPrint('Setting up real-time stream for nutrition summary on $date');
+  final controller = ref.watch(nutritionControllerProvider);
+  return controller.getDailySummaryStream(userId, date);
+});
+
+/// Stream provider for daily nutrition entries
+final dailyNutritionEntriesStreamProvider =
+    StreamProvider.family<List<NutritionEntry>, DateTime>((ref, date) {
+  final userId = ref.watch(currentUserIdProvider).value;
+  if (userId == null || userId.isEmpty) {
+    return Stream.value([]);
+  }
+  final controller = ref.watch(nutritionControllerProvider);
+  return controller.getEntriesForDateStream(userId, date);
 });

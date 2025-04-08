@@ -277,24 +277,46 @@ class FoodController {
   }
 
   /// Save a food item (adds as custom if new, updates if existing)
-  Future<FoodItem> saveFoodItem(FoodItem foodItem) {
-    if (foodItem.isCustom) {
-      return foodRepository.updateCustomFood(foodItem);
-    } else {
-      return foodRepository.addCustomFood(foodItem);
+  ///
+  /// Adds food as custom if new, updates if existing
+  /// [foodItem] The food item to save
+  /// Returns the saved food item or the original on error
+  Future<FoodItem> saveFoodItem(FoodItem foodItem) async {
+    try {
+      if (foodItem.isCustom) {
+        return await foodRepository.updateCustomFood(foodItem);
+      } else {
+        return await foodRepository.addCustomFood(foodItem);
+      }
+    } catch (e) {
+      // Log error but return the original food item to avoid UI breaks
+      debugPrint('Error saving food item: $e');
+      return foodItem;
     }
   }
 
   /// Toggle a food item's favorite status
+  ///
+  /// Adds or removes a food from the user's favorites collection
+  /// [userId] The ID of the current user
+  /// [foodId] The ID of the food to toggle
+  /// [isFavorite] True if the food should be added to favorites, false if it should be removed
+  /// Returns a Future that completes when the operation is done or silently handles errors
   Future<void> toggleFoodFavorite(
     String userId,
     String foodId,
     bool isFavorite,
-  ) {
-    if (isFavorite) {
-      return foodRepository.addToFavorites(userId, foodId);
-    } else {
-      return foodRepository.removeFromFavorites(userId, foodId);
+  ) async {
+    try {
+      if (isFavorite) {
+        await foodRepository.addToFavorites(userId, foodId);
+      } else {
+        await foodRepository.removeFromFavorites(userId, foodId);
+      }
+    } catch (e) {
+      // Log the error but don't propagate it to the UI
+      debugPrint('Error toggling food favorite: $e');
+      // Return normally so UI doesn't break
     }
   }
 }

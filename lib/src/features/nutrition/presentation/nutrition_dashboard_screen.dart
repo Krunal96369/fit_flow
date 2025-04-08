@@ -7,6 +7,7 @@ import '../../../common_widgets/app_scaffold.dart';
 import '../../../features/auth/application/auth_controller.dart';
 import '../application/nutrition_controller.dart';
 import '../domain/nutrition_entry.dart';
+import '../domain/nutrition_repository.dart';
 import '../domain/nutrition_summary.dart';
 
 /// Dashboard screen for nutrition tracking
@@ -20,76 +21,60 @@ class NutritionDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _NutritionDashboardScreenState
-    extends ConsumerState<NutritionDashboardScreen> {
+    extends ConsumerState<NutritionDashboardScreen>
+    with WidgetsBindingObserver {
   DateTime _selectedDate = DateTime.now();
-  DailyNutritionSummary? _summary;
-  List<NutritionEntry> _entries = [];
   bool _isLoading = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    WidgetsBinding.instance.addObserver(this);
   }
 
-  Future<void> _loadData() async {
-    final user = ref.read(authStateProvider).value;
-    if (user == null) return;
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh entries when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+
+  // Refresh when returning to this screen
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshData();
+  }
+
+  Future<void> _refreshData() async {
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // Normalize date to start of day
-      final date = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      );
-
-      try {
-        // Load summary and entries for the selected date
-        final summaryFuture = ref
-            .read(nutritionControllerProvider)
-            .getDailySummary(user.uid, date);
-        final entriesFuture = ref
-            .read(nutritionControllerProvider)
-            .getEntriesForDate(user.uid, date);
-
-        final results = await Future.wait([summaryFuture, entriesFuture]);
-
-        if (mounted) {
-          setState(() {
-            _summary = results[0] as DailyNutritionSummary;
-            _entries = results[1] as List<NutritionEntry>;
-            _isLoading = false;
-            _error = null;
-          });
-        }
-      } catch (e) {
+      // Quick toggle of loading to trigger refresh but not block UI
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            if (e.toString().contains('UnimplementedError')) {
-              _error =
-                  'Nutrition tracking is still being set up. Some features may not be available yet.';
-            } else {
-              _error = 'Error loading nutrition data: ${e.toString()}';
-            }
-            _summary = null;
-            _entries = [];
           });
         }
-      }
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Unexpected error: ${e.toString()}';
-          _summary = null;
-          _entries = [];
+          _error = 'Error refreshing data: ${e.toString()}';
         });
       }
     }
@@ -99,14 +84,14 @@ class _NutritionDashboardScreenState
     setState(() {
       _selectedDate = _selectedDate.subtract(const Duration(days: 1));
     });
-    _loadData();
+    _refreshData();
   }
 
   void _goToNextDay() {
     setState(() {
       _selectedDate = _selectedDate.add(const Duration(days: 1));
     });
-    _loadData();
+    _refreshData();
   }
 
   void _selectDate() async {
@@ -121,7 +106,7 @@ class _NutritionDashboardScreenState
       setState(() {
         _selectedDate = pickedDate;
       });
-      _loadData();
+      _refreshData();
     }
   }
 
@@ -133,7 +118,7 @@ class _NutritionDashboardScreenState
       await ref
           .read(nutritionControllerProvider)
           .logWaterIntake(user.uid, _selectedDate, milliliters);
-      _loadData(); // Refresh data
+      // No need to refresh data, stream will update
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -151,7 +136,7 @@ class _NutritionDashboardScreenState
           context,
         ).showSnackBar(const SnackBar(content: Text('Entry deleted')));
       }
-      _loadData(); // Refresh data
+      _refreshData(); // Refresh data
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -163,6 +148,29 @@ class _NutritionDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Use the stream provider for real-time updates to the summary
+    final summaryStreamAsync = ref.watch(
+      dailyNutritionSummaryStreamProvider(_selectedDate),
+    );
+
+    // Debug: Check which repository implementation is being used
+    final repoType =
+        ref.read(nutritionRepositoryProvider).runtimeType.toString();
+    debugPrint('NUTRITION DASHBOARD: Using repository type: $repoType');
+
+    // Force refresh the entries provider when selected date changes
+    // This is important to ensure real-time updates
+    ref.listen<DateTime>(Provider<DateTime>((ref) => _selectedDate),
+        (previous, current) {
+      // Invalidate the entries provider when date changes
+      ref.invalidate(dailyNutritionEntriesStreamProvider);
+    });
+
+    // Use the stream provider for entries to get real-time updates
+    final entriesAsync = ref.watch(
+      dailyNutritionEntriesStreamProvider(_selectedDate),
+    );
+
     return AppScaffold(
       title: 'Nutrition Tracker',
       actions: [
@@ -172,26 +180,45 @@ class _NutritionDashboardScreenState
           tooltip: 'Nutrition Goals',
         ),
       ],
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
               ? _buildErrorState()
               : RefreshIndicator(
-                onRefresh: _loadData,
-                child: ListView(
-                  padding: const EdgeInsets.all(16.0),
-                  children: [
-                    _buildDateSelector(),
-                    const SizedBox(height: 16),
-                    _buildDailySummary(),
-                    const SizedBox(height: 16),
-                    _buildWaterTracker(),
-                    const SizedBox(height: 16),
-                    _buildTodaysEntries(),
-                  ],
+                  onRefresh: _refreshData,
+                  child: summaryStreamAsync.when(
+                    data: (summary) {
+                      return entriesAsync.when(
+                        data: (entries) {
+                          return ListView(
+                            padding: const EdgeInsets.all(16.0),
+                            children: [
+                              _buildDateSelector(),
+                              const SizedBox(height: 16),
+                              _buildDailySummary(summary),
+                              const SizedBox(height: 16),
+                              _buildWaterTracker(summary),
+                              const SizedBox(height: 16),
+                              _buildTodaysEntries(entries),
+                            ],
+                          );
+                        },
+                        loading: () => const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                        error: (error, stack) => Center(
+                          child: Text('Error loading entries: $error'),
+                        ),
+                      );
+                    },
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    error: (error, stack) => Center(
+                      child: Text('Error loading nutrition data: $error'),
+                    ),
+                  ),
                 ),
-              ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           context.go('/nutrition/add?date=${_selectedDate.toIso8601String()}');
@@ -203,8 +230,7 @@ class _NutritionDashboardScreenState
 
   Widget _buildDateSelector() {
     final today = DateTime.now();
-    final isToday =
-        _selectedDate.year == today.year &&
+    final isToday = _selectedDate.year == today.year &&
         _selectedDate.month == today.month &&
         _selectedDate.day == today.day;
 
@@ -238,18 +264,7 @@ class _NutritionDashboardScreenState
     );
   }
 
-  Widget _buildDailySummary() {
-    final summary = _summary;
-
-    if (summary == null) {
-      return const Card(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text('No nutrition data for this day'),
-        ),
-      );
-    }
-
+  Widget _buildDailySummary(DailyNutritionSummary summary) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -335,13 +350,7 @@ class _NutritionDashboardScreenState
     );
   }
 
-  Widget _buildWaterTracker() {
-    final summary = _summary;
-
-    if (summary == null) {
-      return const SizedBox.shrink();
-    }
-
+  Widget _buildWaterTracker(DailyNutritionSummary summary) {
     final progress = summary.waterIntake / summary.waterGoal;
     final progressCapped = progress.clamp(0.0, 1.0);
 
@@ -392,8 +401,8 @@ class _NutritionDashboardScreenState
     );
   }
 
-  Widget _buildTodaysEntries() {
-    if (_entries.isEmpty) {
+  Widget _buildTodaysEntries(List<NutritionEntry> entries) {
+    if (entries.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -433,10 +442,10 @@ class _NutritionDashboardScreenState
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _entries.length,
+            itemCount: entries.length,
             separatorBuilder: (context, index) => const Divider(),
             itemBuilder: (context, index) {
-              final entry = _entries[index];
+              final entry = entries[index];
               return Dismissible(
                 key: Key(entry.id),
                 direction: DismissDirection.endToStart,

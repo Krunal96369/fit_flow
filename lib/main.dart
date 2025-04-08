@@ -9,8 +9,9 @@ import 'src/app.dart';
 // Import specific repository implementations
 import 'src/data/repositories/firebase_food_repository.dart';
 // Import the repo providers that have the real implementations
-import 'src/data/repositories/repository_providers.dart';
-import 'src/features/nutrition/domain/food_repository.dart';
+import 'src/data/repositories/repository_providers.dart' as repos;
+// Import domain interfaces
+import 'src/features/nutrition/domain/nutrition_repository.dart' as domain;
 import 'src/services/notification_service.dart';
 
 // Removed flutter_local_notifications import as it's now encapsulated in the service
@@ -18,11 +19,6 @@ import 'src/services/notification_service.dart';
 void main() async {
   // Ensure widgets are initialized
   WidgetsFlutterBinding.ensureInitialized();
-
-  // DEBUGGING: Print startup information
-  debugPrint('==============================================================');
-  debugPrint('FitFlow App Starting');
-  debugPrint('==============================================================');
 
   // Initialize Firebase
   await Firebase.initializeApp(
@@ -61,15 +57,12 @@ void main() async {
   // Including overrides to ensure proper initialization
   final container = ProviderContainer(
     overrides: [
-      // Force the providers to be initialized
-      baseFoodRepositoryProvider,
-      nutritionRepositoryProvider,
-      authRepositoryProvider,
+      // No overrides needed here, just accessing the providers
     ],
   );
 
   // Pre-initialize repositories and verify they're loaded correctly
-  final foodRepo = container.read(baseFoodRepositoryProvider);
+  final foodRepo = container.read(repos.foodRepositoryProvider);
   debugPrint('==============================================================');
   debugPrint('REPOSITORY DEBUG: Food Repository Type: ${foodRepo.runtimeType}');
   debugPrint(
@@ -82,13 +75,14 @@ void main() async {
 
   // Wrap the app in ProviderScope to provide the repositories to the widget tree
   runApp(
-    const ProviderScope(
-      // Override any test/dev providers with the real implementations
+    ProviderScope(
+      // Explicitly override the mock nutrition repository with the real one
       overrides: [
-        // Use the real repository providers from src/data/repositories/repository_providers.dart
-        // This ensures the entire app uses the Firebase implementations, not the mocks
+        // This fixes the issue where the nutrition dashboard is using the mock repository
+        domain.nutritionRepositoryProvider
+            .overrideWithProvider(repos.nutritionRepositoryProvider),
       ],
-      child: FitFlowApp(),
+      child: const FitFlowApp(),
     ),
   );
 }

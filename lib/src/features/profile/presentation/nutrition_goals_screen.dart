@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/application/auth_controller.dart';
 import '../../../features/nutrition/application/nutrition_controller.dart';
-import '../../../features/nutrition/domain/nutrition_summary.dart';
+import '../../../features/nutrition/domain/nutrition_goals.dart';
 
 /// Screen for managing nutrition goals in the profile section
 class NutritionGoalsScreen extends ConsumerStatefulWidget {
