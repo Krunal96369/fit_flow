@@ -10,6 +10,7 @@ import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/nutrition/nutrition_router.dart';
 import '../features/onboarding/application/onboarding_controller.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 
@@ -122,8 +123,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // Workout routes
       GoRoute(
         path: '/workouts/new',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'New Workout'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'New Workout'),
       ),
       GoRoute(
         path: '/workouts/:id',
@@ -143,20 +144,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NutritionGoalsScreen(),
       ),
       GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
         path: '/settings/theme',
-        builder:
-            (context, state) =>
-                const PlaceholderScreen(title: 'Theme Settings'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Theme Settings'),
       ),
       GoRoute(
         path: '/settings/accessibility',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'Accessibility'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Accessibility'),
       ),
       GoRoute(
         path: '/export',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'Export Data'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Export Data'),
       ),
     ],
   );

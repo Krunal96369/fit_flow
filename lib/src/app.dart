@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'routing/app_router.dart';
+import 'services/theme/theme_service.dart';
 
 class FitFlowApp extends ConsumerWidget {
   const FitFlowApp({super.key});
@@ -11,6 +12,9 @@ class FitFlowApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Get the router from the provider
     final router = ref.watch(goRouterProvider);
+
+    // Get the current theme mode from the theme provider
+    final themeMode = ref.watch(themeModeProvider);
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
@@ -34,7 +38,7 @@ class FitFlowApp extends ConsumerWidget {
             colorScheme: darkColorScheme,
             useMaterial3: true,
           ),
-          themeMode: ThemeMode.system,
+          themeMode: themeMode, // Use the theme mode from the provider
           routerConfig: router,
         );
       },
