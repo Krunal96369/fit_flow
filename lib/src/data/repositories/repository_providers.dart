@@ -86,7 +86,10 @@ final cloudFunctionsServiceProvider = Provider<CloudFunctionsService>((ref) {
 
 // Repository providers
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return FirebaseAuthRepository(ref.watch(_firebaseAuthProvider));
+  return FirebaseAuthRepository(
+    ref.watch(_firebaseAuthProvider),
+    firestore: ref.watch(_firestoreProvider),
+  );
 });
 
 final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {

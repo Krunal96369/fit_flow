@@ -1,33 +1,40 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/auth_repository.dart';
+import '../domain/models/auth_credentials.dart';
+import '../../../data/repositories/repository_providers.dart';
+
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
 
 final authControllerProvider = Provider<AuthController>((ref) {
-  return AuthController(FirebaseAuth.instance);
+  final authRepository = ref.watch(authRepositoryProvider);
+  return AuthController(FirebaseAuth.instance, authRepository);
 });
 
 class AuthController {
   final FirebaseAuth _auth;
+  final AuthRepository _authRepository;
 
-  AuthController(this._auth);
+  AuthController(this._auth, this._authRepository);
 
   Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
+    await _authRepository.signInWithCredentials(
+      SignInCredentials(email: email, password: password),
+    );
   }
 
   Future<void> createUserWithEmailAndPassword({
     required String email,
     required String password,
   }) async {
-    await _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
+    await _authRepository.createUserWithCredentials(
+      SignUpCredentials(email: email, password: password),
     );
   }
 
@@ -52,7 +59,7 @@ class AuthController {
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
+    await _authRepository.signOut();
   }
 
   User? get currentUser => _auth.currentUser;

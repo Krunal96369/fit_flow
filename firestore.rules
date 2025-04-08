@@ -2,36 +2,60 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read their own data
+    // Allow authenticated users to read and write their own data
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Allow access to all subcollections within user documents
+      match /{collection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Specific rules for food subcollections
+      match /foods/{foodId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /food_favorites/{favoriteId} {
+        allow read, write: if request.auth != null &&
+                           request.auth.uid == userId;
+      }
+
+      match /recent_foods/{recentId} {
+        allow read, write: if request.auth != null &&
+                           request.auth.uid == userId;
+      }
+
+      match /nutrition_entries/{entryId} {
+        allow read, write: if request.auth != null &&
+                           request.auth.uid == userId;
+      }
     }
 
-    // Allow authenticated users to read food data and write their own custom foods
+    // Allow authenticated users to read global food data and only create/update their own custom foods
     match /foods/{foodId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null &&
-        request.resource.data['createdBy'] == request.auth.uid &&
-        request.resource.data['isCustom'] == true;
-      allow update: if request.auth != null &&
-        resource.data['createdBy'] == request.auth.uid &&
-        request.resource.data['createdBy'] == request.auth.uid;
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.isCustom == true;
+      allow update: if request.auth != null && (
+        (resource.data.createdBy == request.auth.uid) ||
+        (!('createdBy' in resource.data) && request.resource.data.createdBy == request.auth.uid)
+      );
       allow delete: if request.auth != null &&
-        resource.data['createdBy'] == request.auth.uid;
+        resource.data.createdBy == request.auth.uid;
     }
 
-    // Allow users to manage their own recent foods
-    match /recent_foods/{docId} {
-      allow read, write: if request.auth != null &&
-        docId.startsWith(request.auth.uid + '_');
+    // Helper function to check if user is admin
+    function isAdmin() {
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.exists && userDoc.data.isAdmin == true;
     }
 
     // Restrict app_config - only admins and Cloud Functions can access
     match /app_config/{docId} {
-      allow read: if request.auth != null &&
-                   get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow write: if request.auth != null &&
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow read: if request.auth != null && isAdmin();
+      allow write: if request.auth != null && isAdmin();
     }
   }
 }

@@ -1,12 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'nutrition_entry.dart';
+import 'nutrition_goals.dart';
 import 'nutrition_summary.dart';
 
 /// Repository interface for managing nutrition data
 abstract class NutritionRepository {
   /// Get all nutrition entries for a specific date
   Future<List<NutritionEntry>> getEntriesForDate(String userId, DateTime date);
+
+  /// Get a stream of nutrition entries for a specific date
+  Stream<List<NutritionEntry>> getEntriesForDateStream(
+      String userId, DateTime date);
 
   /// Get all nutrition entries for a date range
   Future<List<NutritionEntry>> getEntriesForDateRange(
@@ -45,6 +50,10 @@ abstract class NutritionRepository {
 
   /// Get water intake for a specific date (in milliliters)
   Future<int> getWaterIntake(String userId, DateTime date);
+
+  /// Get real-time updates for a user's daily nutrition summary
+  Stream<DailyNutritionSummary> getDailySummaryStream(
+      String userId, DateTime date);
 }
 
 /// Provider for the nutrition repository
@@ -144,5 +153,26 @@ class _MockNutritionRepository implements NutritionRepository {
   @override
   Future<NutritionEntry> updateEntry(NutritionEntry entry) async {
     return entry;
+  }
+
+  @override
+  Stream<DailyNutritionSummary> getDailySummaryStream(
+      String userId, DateTime date) {
+    // Return a stream with a default summary instead of throwing an error
+    return Stream.value(DailyNutritionSummary(
+      date: date,
+      calorieGoal: 2000,
+      proteinGoal: 125.0,
+      carbsGoal: 250.0,
+      fatGoal: 55.0,
+      waterGoal: 2500,
+    ));
+  }
+
+  @override
+  Stream<List<NutritionEntry>> getEntriesForDateStream(
+      String userId, DateTime date) {
+    // Return an empty stream instead of throwing an error
+    return Stream.value([]);
   }
 }

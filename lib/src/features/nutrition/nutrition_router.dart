@@ -17,10 +17,9 @@ final nutritionRoutes = [
         path: 'add',
         name: 'add-nutrition',
         builder: (context, state) {
-          final date =
-              state.uri.queryParameters['date'] != null
-                  ? DateTime.parse(state.uri.queryParameters['date']!)
-                  : DateTime.now();
+          final date = state.uri.queryParameters['date'] != null
+              ? DateTime.parse(state.uri.queryParameters['date']!)
+              : DateTime.now();
 
           // Check if we have a food item passed in the extra parameter
           final FoodItem? foodItem = state.extra as FoodItem?;
@@ -32,10 +31,9 @@ final nutritionRoutes = [
         path: 'search',
         name: 'food-search',
         builder: (context, state) {
-          final date =
-              state.uri.queryParameters['date'] != null
-                  ? DateTime.parse(state.uri.queryParameters['date']!)
-                  : DateTime.now();
+          final date = state.uri.queryParameters['date'] != null
+              ? DateTime.parse(state.uri.queryParameters['date']!)
+              : DateTime.now();
 
           return FoodSearchScreen(date: date);
         },

@@ -33,31 +33,6 @@ class FirebaseFoodRepository implements FoodRepository {
   static const String _favoritesCollection = 'food_favorites';
   static const String _recentFoodsCollection = 'recent_foods';
 
-  /// TTL for cached search results in minutes
-  static const int _searchCacheTtl = 60; // 1 hour cache
-
-  /// Rate limiting for API calls
-  DateTime? _lastApiCallTime;
-  static const Duration _apiCallThrottle = Duration(milliseconds: 500);
-
-  /// Check if we can make an API call (rate limiting)
-  bool _canMakeApiCall() {
-    if (_lastApiCallTime == null) {
-      _lastApiCallTime = DateTime.now();
-      return true;
-    }
-
-    final now = DateTime.now();
-    final timeSinceLastCall = now.difference(_lastApiCallTime!);
-
-    if (timeSinceLastCall >= _apiCallThrottle) {
-      _lastApiCallTime = now;
-      return true;
-    }
-
-    return false;
-  }
-
   /// Creates a [FirebaseFoodRepository].
   FirebaseFoodRepository({
     required FirebaseFirestore firestore,
@@ -493,12 +468,13 @@ class FirebaseFoodRepository implements FoodRepository {
       // If not in cache and connected, try Firestore
       final isConnected = await _isConnected();
       if (isConnected) {
+        // If not found in user collection, check the global foods collection
         final doc = await _firestore.collection(_foodsCollection).doc(id).get();
 
         if (doc.exists) {
           final food = FoodItem.fromMap(doc.data()!);
           // Update cache
-          await _foodsBox.put(_getKeyForFood(food), food.toMap());
+          await _foodsBox.put('$_foodPrefix${food.id}', food.toMap());
           return food;
         }
 
@@ -507,7 +483,7 @@ class FirebaseFoodRepository implements FoodRepository {
           final food = await _cloudFunctionsService.getFoodById(id);
           if (food != null) {
             // Update cache
-            await _foodsBox.put(_getKeyForFood(food), food.toMap());
+            await _foodsBox.put('$_foodPrefix${food.id}', food.toMap());
             return food;
           }
         } catch (e) {
@@ -525,23 +501,30 @@ class FirebaseFoodRepository implements FoodRepository {
   }
 
   @override
-  Future<List<FoodItem>> getRecentFoods(String userId, {int limit = 10}) async {
+  Future<List<FoodItem>> getRecentFoods(String userId, {int limit = 5}) async {
     try {
+      // Always limit to 5 recent foods, ignore the limit parameter
+      // (but keep it for compatibility)
+      const maxRecentFoods = 5;
       final isConnected = await _isConnected();
       List<FoodItem> recentFoods = [];
 
       if (isConnected) {
-        final querySnapshot = await _firestore
-            .collection(_recentFoodsCollection)
-            .where('userId', isEqualTo: userId)
+        final querySnapshot = await _getUserRecentFoodsQuery(userId)
             .orderBy('lastUsed', descending: true)
-            .limit(limit)
+            .limit(maxRecentFoods)
             .get();
 
         // Get the food IDs from recent foods
         final foodIds = querySnapshot.docs
-            .map((doc) => doc.data()['foodId'] as String)
+            .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['foodId'] as String? ?? '';
+            })
+            .where((id) => id.isNotEmpty)
             .toList();
+
+        debugPrint('Found ${foodIds.length} recent foods for user: $userId');
 
         // Fetch each food item
         for (final foodId in foodIds) {
@@ -560,9 +543,9 @@ class FirebaseFoodRepository implements FoodRepository {
             (a, b) => (b['lastUsed'] as int).compareTo(a['lastUsed'] as int),
           );
 
-        // Limit results
+        // Limit results to 5
         final limitedIds = recentFoodIds
-            .take(limit)
+            .take(maxRecentFoods)
             .map((data) => data['foodId'] as String)
             .toList();
 
@@ -586,6 +569,7 @@ class FirebaseFoodRepository implements FoodRepository {
         }
       }
 
+      debugPrint('Returning ${recentFoods.length} recent foods');
       return recentFoods;
     } catch (e) {
       debugPrint('Error getting recent foods: $e');
@@ -621,28 +605,61 @@ class FirebaseFoodRepository implements FoodRepository {
     }
   }
 
-  Future<void> _saveFoodToFirestore(FoodItem food) async {
-    final foodData = food.toMap();
-    // Ensure createdBy is set to the user's ID for custom foods
-    if (food.isCustom) {
-      foodData['createdBy'] = food.userId;
-    }
-    await _firestore.collection(_foodsCollection).doc(food.id).set(foodData);
-  }
-
   @override
   Future<FoodItem> updateCustomFood(FoodItem food) async {
     try {
       final isConnected = await _isConnected();
+      debugPrint('Updating custom food: ${food.id} for user: ${food.userId}');
 
       if (isConnected) {
-        await _firestore
-            .collection(_foodsCollection)
-            .doc(food.id)
-            .update(food.toMap());
+        // If it's a custom food with a user ID, save to the user's subcollection
+        if (food.userId.isNotEmpty) {
+          try {
+            // First check if the document exists
+            final docRef = _getUserFoodDoc(food.userId, food.id);
+            final doc = await docRef.get();
+
+            if (doc.exists) {
+              // Document exists, update it
+              debugPrint('Document exists, updating it');
+              await docRef.update(food.toMap());
+            } else {
+              // Document doesn't exist, create it
+              debugPrint('Document does not exist, creating it');
+              await docRef.set(food.toMap());
+            }
+          } catch (e) {
+            debugPrint(
+                'Error checking/updating document, using set with merge: $e');
+            // Fallback: use set with merge option which will create or update
+            await _getUserFoodDoc(food.userId, food.id)
+                .set(food.toMap(), SetOptions(merge: true));
+          }
+        } else {
+          // Fallback to global collection if no user ID (should be rare)
+          try {
+            final docRef = _firestore.collection(_foodsCollection).doc(food.id);
+            final doc = await docRef.get();
+
+            if (doc.exists) {
+              await docRef.update(food.toMap());
+            } else {
+              await docRef.set(food.toMap());
+            }
+          } catch (e) {
+            debugPrint('Error checking/updating global document: $e');
+            await _firestore
+                .collection(_foodsCollection)
+                .doc(food.id)
+                .set(food.toMap(), SetOptions(merge: true));
+          }
+        }
+
+        // Update local cache
         await _foodsBox.put('$_userFoodPrefix${food.id}', food.toMap());
       } else {
         // Store as unsynced in local cache
+        debugPrint('Offline mode: storing food in local cache');
         await _foodsBox.put(
           '${_userFoodPrefix}unsynced_${food.id}',
           food.toMap(),
@@ -656,13 +673,45 @@ class FirebaseFoodRepository implements FoodRepository {
     }
   }
 
+  Future<void> _saveFoodToFirestore(FoodItem food) async {
+    final foodData = food.toMap();
+    // Ensure createdBy is set to the user's ID for custom foods
+    if (food.isCustom) {
+      foodData['createdBy'] = food.userId;
+      // Always save custom foods to user-specific food collection
+      if (food.userId.isNotEmpty) {
+        await _getUserFoodDoc(food.userId, food.id).set(foodData);
+      } else {
+        debugPrint(
+            'WARNING: Custom food has no userId, saving to global collection');
+        await _firestore
+            .collection(_foodsCollection)
+            .doc(food.id)
+            .set(foodData);
+      }
+    } else {
+      // For API foods, save to the global collection
+      await _firestore.collection(_foodsCollection).doc(food.id).set(foodData);
+    }
+  }
+
   @override
   Future<void> deleteCustomFood(String foodId) async {
     try {
+      // Get the food first to determine if it's in a user subcollection
+      final food = await getFoodById(foodId);
+      if (food == null) return;
+
       final isConnected = await _isConnected();
 
       if (isConnected) {
-        await _firestore.collection(_foodsCollection).doc(foodId).delete();
+        // If it has a userId, delete from the user subcollection
+        if (food.userId.isNotEmpty) {
+          await _getUserFoodDoc(food.userId, foodId).delete();
+        } else {
+          // Fallback to global collection
+          await _firestore.collection(_foodsCollection).doc(foodId).delete();
+        }
       }
 
       // Remove from local cache
@@ -745,14 +794,15 @@ class FirebaseFoodRepository implements FoodRepository {
       List<FoodItem> favoriteFoods = [];
 
       if (isConnected) {
-        final querySnapshot = await _firestore
-            .collection(_favoritesCollection)
-            .where('userId', isEqualTo: userId)
-            .get();
+        final querySnapshot = await _getUserFavoritesQuery(userId).get();
 
         // Get the food IDs from favorites
         final foodIds = querySnapshot.docs
-            .map((doc) => doc.data()['foodId'] as String)
+            .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return data['foodId'] as String? ?? '';
+            })
+            .where((id) => id.isNotEmpty)
             .toList();
 
         // Fetch each food item
@@ -814,7 +864,7 @@ class FirebaseFoodRepository implements FoodRepository {
       final isConnected = await _isConnected();
 
       if (isConnected) {
-        await _firestore.collection(_favoritesCollection).doc(docId).set(data);
+        await _getUserFavoriteDoc(userId, foodId).set(data);
       }
 
       // Update local cache
@@ -833,7 +883,7 @@ class FirebaseFoodRepository implements FoodRepository {
       final isConnected = await _isConnected();
 
       if (isConnected) {
-        await _firestore.collection(_favoritesCollection).doc(docId).delete();
+        await _getUserFavoriteDoc(userId, foodId).delete();
       }
 
       // Remove from local cache
@@ -857,14 +907,63 @@ class FirebaseFoodRepository implements FoodRepository {
       final isConnected = await _isConnected();
 
       if (isConnected) {
-        await _firestore
-            .collection(_recentFoodsCollection)
-            .doc(docId)
-            .set(data);
+        // First, add the new recent food
+        await _getUserRecentFoodDoc(userId, foodId).set(data);
+
+        // Then check how many recent foods this user has
+        final querySnapshot = await _getUserRecentFoodsQuery(userId)
+            .orderBy('lastUsed', descending: true)
+            .get();
+
+        // If there are more than 5, delete the oldest ones
+        if (querySnapshot.docs.length > 5) {
+          final toDelete = querySnapshot.docs.sublist(5);
+          debugPrint(
+              'Deleting ${toDelete.length} old recent foods to maintain limit of 5');
+
+          for (final doc in toDelete) {
+            final oldData = doc.data() as Map<String, dynamic>;
+            final oldFoodId = oldData['foodId'] as String? ?? '';
+            if (oldFoodId.isNotEmpty) {
+              // Delete from Firestore
+              await _getUserRecentFoodDoc(userId, oldFoodId).delete();
+
+              // Delete from local cache
+              final oldDocId = '${userId}_$oldFoodId';
+              await _recentFoodsBox.delete('$_recentPrefix$oldDocId');
+            }
+          }
+        }
       }
 
-      // Update local cache
+      // Update local cache for the new entry
       await _recentFoodsBox.put('$_recentPrefix$docId', data);
+
+      // Also clean up local cache if needed
+      if (isConnected) {
+        final cachedRecentKeys = _recentFoodsBox.keys
+            .where((key) => key.toString().startsWith('$_recentPrefix$userId'))
+            .toList();
+
+        if (cachedRecentKeys.length > 5) {
+          // Sort by lastUsed timestamp (oldest first)
+          cachedRecentKeys.sort((a, b) {
+            final dataA =
+                Map<String, dynamic>.from(_recentFoodsBox.get(a) as Map);
+            final dataB =
+                Map<String, dynamic>.from(_recentFoodsBox.get(b) as Map);
+            return (dataA['lastUsed'] as int)
+                .compareTo(dataB['lastUsed'] as int);
+          });
+
+          // Delete oldest entries to keep only 5
+          final keysToDelete =
+              cachedRecentKeys.sublist(0, cachedRecentKeys.length - 5);
+          for (final key in keysToDelete) {
+            await _recentFoodsBox.delete(key);
+          }
+        }
+      }
     } catch (e) {
       debugPrint('Error marking food as recently used: $e');
       rethrow;
@@ -889,9 +988,11 @@ class FirebaseFoodRepository implements FoodRepository {
       // If we have a connection, try to fetch from Firestore
       if (isConnected) {
         try {
+          // Fetch custom foods from user subcollection
           final QuerySnapshot querySnapshot = await _firestore
-              .collection('foods')
-              .where('userId', isEqualTo: userId)
+              .collection('users')
+              .doc(userId)
+              .collection(_foodsCollection)
               .where('isCustom', isEqualTo: true)
               .get();
 
@@ -903,7 +1004,7 @@ class FirebaseFoodRepository implements FoodRepository {
 
           // Cache the results locally
           for (final food in results) {
-            await _foodsBox.put('food_${food.id}', food.toMap());
+            await _foodsBox.put('$_userFoodPrefix${food.id}', food.toMap());
           }
 
           return results;
@@ -929,5 +1030,50 @@ class FirebaseFoodRepository implements FoodRepository {
   /// Dispose of any resources
   void dispose() {
     _connectivitySubscription?.cancel();
+  }
+
+  /// Gets a reference to a user's food collection
+  DocumentReference _getUserFoodDoc(String userId, String foodId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection(_foodsCollection)
+        .doc(foodId);
+  }
+
+  /// Gets a reference to a user's favorites collection
+  DocumentReference _getUserFavoriteDoc(String userId, String foodId) {
+    final docId = '${userId}_$foodId';
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection(_favoritesCollection)
+        .doc(docId);
+  }
+
+  /// Gets a reference to a user's recent foods collection
+  DocumentReference _getUserRecentFoodDoc(String userId, String foodId) {
+    final docId = '${userId}_$foodId';
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection(_recentFoodsCollection)
+        .doc(docId);
+  }
+
+  /// Gets a query reference to a user's favorites collection
+  Query _getUserFavoritesQuery(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection(_favoritesCollection);
+  }
+
+  /// Gets a query reference to a user's recent foods collection
+  Query _getUserRecentFoodsQuery(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection(_recentFoodsCollection);
   }
 }
