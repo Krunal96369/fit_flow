@@ -62,5 +62,19 @@ class AuthController {
     await _authRepository.signOut();
   }
 
+  Future<void> resetPassword(String email) async {
+    await _authRepository.resetPassword(email);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _authRepository.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
+
   User? get currentUser => _auth.currentUser;
 }

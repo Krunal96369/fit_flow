@@ -385,7 +385,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   const Text('Already have an account?'),
                   TextButton(
                     onPressed: () {
-                      context.push('/sign-in');
+                      context.pushReplacement('/sign-in');
                     },
                     child: const Text('Sign In'),
                   ),

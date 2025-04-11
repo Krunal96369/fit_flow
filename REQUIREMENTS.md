@@ -1,7 +1,7 @@
 # App Requirements Specification
 
 ## 1. Overview
-The FitFlow app is a cross-platform solution built with Flutter, targeting iOS 13+ and Android 8+ devices. It integrates advanced features for nutrition tracking, exercise logging, activity monitoring, goal setting, and personalized analytics. Leveraging Firebase for backend services, third-party APIs (e.g., FatSecret), and native health platforms (Apple HealthKit, Google Fit), the app delivers a seamless, secure, and scalable user experience. Advanced capabilities such as AI-driven insights, offline functionality, and wearable integration set it apart as a next-generation fitness tool.
+The FitFlow app is a cross-platform solution built with Flutter, targeting iOS 13+ and Android 13+ devices. It integrates advanced features for nutrition tracking, exercise logging, activity monitoring, goal setting, and personalized analytics. Leveraging Firebase for backend services, third-party APIs (e.g., FatSecret), and native health platforms (Apple HealthKit, Google Fit), the app delivers a seamless, secure, and scalable user experience. Advanced capabilities such as AI-driven insights, offline functionality, and wearable integration set it apart as a next-generation fitness tool.
 
 ---
 

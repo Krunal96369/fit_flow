@@ -71,6 +71,69 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
+  @override
+  Future<void> signOut() async {
+    try {
+      await _firebaseAuth.signOut();
+    } catch (e) {
+      debugPrint('Error during sign out: $e');
+      rethrow; // Rethrow unexpected errors
+    }
+  }
+
+  @override
+  Future<void> resetPassword(String email) async {
+    try {
+      await _firebaseAuth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during password reset: ${e.code}');
+      rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during password reset: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _firebaseAuth.currentUser;
+    if (user == null) {
+      throw Exception('No user is currently signed in');
+    }
+
+    try {
+      // First, reauthenticate the user with their current password
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Then update the password
+      await user.updatePassword(newPassword);
+
+      // Force sign out to require the user to sign in with new password
+      await signOut();
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during password change: ${e.code}');
+      // Map common error codes to more user-friendly messages
+      if (e.code == 'wrong-password') {
+        throw Exception('Current password is incorrect');
+      } else if (e.code == 'weak-password') {
+        throw Exception('New password is too weak');
+      } else if (e.code == 'requires-recent-login') {
+        throw Exception('Please sign in again before changing your password');
+      }
+      rethrow;
+    } catch (e) {
+      debugPrint('Unexpected error during password change: $e');
+      rethrow;
+    }
+  }
+
   /// Creates a user document in Firestore with default values
   Future<void> _createUserDocument(String userId, String email) async {
     try {
@@ -113,16 +176,6 @@ class FirebaseAuthRepository implements AuthRepository {
     } catch (e) {
       debugPrint('Error creating user document: $e');
       // We don't rethrow here to prevent blocking account creation if Firestore fails
-    }
-  }
-
-  @override
-  Future<void> signOut() async {
-    try {
-      await _firebaseAuth.signOut();
-    } catch (e) {
-      debugPrint('Error during sign out: $e');
-      rethrow; // Rethrow unexpected errors
     }
   }
 }

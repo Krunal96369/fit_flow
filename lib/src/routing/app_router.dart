@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../common_widgets/app_scaffold.dart';
 import '../features/auth/application/auth_controller.dart';
+import '../features/auth/presentation/change_password_screen.dart';
+import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart'; // Import SignUpScreen
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -43,7 +45,9 @@ bool shouldShowBottomNavBar(String path) {
   if (path.contains('/add') ||
       path.contains('/edit') ||
       path.contains('/details') ||
-      path.contains('/settings')) {
+      path.contains('/settings') ||
+      path.contains('/reset-password') ||
+      path.contains('/change-password')) {
     return false;
   }
 
@@ -73,19 +77,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       );
 
       // Allow access to auth screens if not logged in
-      final isAuthScreen =
-          state.fullPath == '/sign-in' || state.fullPath == '/sign-up';
+      final isLoginRelatedScreen = state.fullPath == '/sign-in' ||
+          state.fullPath == '/sign-up' ||
+          state.fullPath == '/reset-password' ||
+          state.fullPath?.startsWith('/reset-password') == true;
+
+      // Screens that require authentication but shouldn't redirect to dashboard when logged in
+      final isAuthRequiredSpecialScreen = state.fullPath == '/change-password';
 
       // If not logged in and not on an auth screen or onboarding, redirect to login
       if (!isLoggedIn &&
-          !isAuthScreen &&
+          !isLoginRelatedScreen &&
+          !isAuthRequiredSpecialScreen &&
           onboardingCompleted &&
           state.fullPath != '/onboarding') {
         return state.path ?? '/sign-in';
       }
 
-      // If logged in and on an auth screen, redirect to dashboard
-      if (isLoggedIn && isAuthScreen) {
+      // If logged in and on a login-related screen, redirect to dashboard
+      if (isLoggedIn && isLoginRelatedScreen) {
         return '/dashboard';
       }
 
@@ -108,6 +118,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         // Add route for SignUpScreen
         path: '/sign-up',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
 
       // Dashboard (main screen)

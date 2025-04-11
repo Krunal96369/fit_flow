@@ -274,12 +274,25 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   controller: _passwordController,
                   decoration: const InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
+                    hintText: 'Enter your password',
                     prefixIcon: Icon(Icons.lock),
+                    border: OutlineInputBorder(),
                   ),
                   obscureText: true,
                   textInputAction: TextInputAction.done,
                   onSubmitted: (_) => _signInWithEmail(),
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      // Use a more explicit navigation approach
+                      final router = GoRouter.of(context);
+                      router.push('/reset-password?source=signin');
+                    },
+                    child: const Text('Forgot Password?'),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 AccessibleButton(
@@ -371,7 +384,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   const Text('Don\'t have an account?'),
                   TextButton(
                     onPressed: () {
-                      context.push('/sign-up');
+                      context.pushReplacement('/sign-up');
                     },
                     child: const Text('Sign Up'),
                   ),

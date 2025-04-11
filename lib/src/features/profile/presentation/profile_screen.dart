@@ -130,11 +130,7 @@ class ProfileScreen extends ConsumerWidget {
                   icon: Icons.lock,
                   title: 'Change Password',
                   onTap: () {
-                    // This would be implemented in a future feature
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Change Password - Coming soon')),
-                    );
+                    context.push('/change-password');
                   },
                 ),
               ],

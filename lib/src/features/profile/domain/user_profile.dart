@@ -35,6 +35,15 @@ class UserProfile {
   /// When the profile was last updated
   final DateTime? lastUpdated;
 
+  /// When the profile was created
+  final DateTime? createdAt;
+
+  /// User preferences
+  final Map<String, dynamic>? preferences;
+
+  /// Whether the user is an admin
+  final bool isAdmin;
+
   /// Constructor
   UserProfile({
     required this.id,
@@ -48,6 +57,9 @@ class UserProfile {
     this.dateOfBirth,
     this.gender,
     this.lastUpdated,
+    this.createdAt,
+    this.preferences,
+    this.isAdmin = false,
   });
 
   /// Create a copy of this user profile with the given fields replaced
@@ -63,6 +75,9 @@ class UserProfile {
     DateTime? dateOfBirth,
     String? gender,
     DateTime? lastUpdated,
+    DateTime? createdAt,
+    Map<String, dynamic>? preferences,
+    bool? isAdmin,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -76,6 +91,9 @@ class UserProfile {
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       gender: gender ?? this.gender,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      createdAt: createdAt ?? this.createdAt,
+      preferences: preferences ?? this.preferences,
+      isAdmin: isAdmin ?? this.isAdmin,
     );
   }
 
@@ -105,8 +123,8 @@ class UserProfile {
 
   /// Convert profile to a map for storage in Firestore
   Map<String, dynamic> toMap() {
-    return {
-      'id': id,
+    final map = {
+      'userId': id, // Using userId to match the existing structure
       'displayName': displayName,
       'email': email,
       'photoUrl': photoUrl,
@@ -117,16 +135,29 @@ class UserProfile {
       'dateOfBirth':
           dateOfBirth != null ? Timestamp.fromDate(dateOfBirth!) : null,
       'gender': gender,
-      'lastUpdated': lastUpdated != null
+      'updatedAt': lastUpdated != null
           ? Timestamp.fromDate(lastUpdated!)
-          : Timestamp.now(),
+          : FieldValue.serverTimestamp(),
+      'isAdmin': isAdmin,
     };
+
+    // Only include preferences if it exists
+    if (preferences != null) {
+      map['preferences'] = preferences;
+    }
+
+    // Only include createdAt when creating a new document, not on updates
+    if (createdAt != null) {
+      map['createdAt'] = Timestamp.fromDate(createdAt!);
+    }
+
+    return map;
   }
 
   /// Create a profile from a Firestore document map
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
-      id: map['id'] ?? '',
+      id: map['userId'] ?? map['id'] ?? '', // Support both id formats
       displayName: map['displayName'] ?? '',
       email: map['email'] ?? '',
       photoUrl: map['photoUrl'],
@@ -138,20 +169,32 @@ class UserProfile {
           ? (map['dateOfBirth'] as Timestamp).toDate()
           : null,
       gender: map['gender'],
-      lastUpdated: map['lastUpdated'] != null
-          ? (map['lastUpdated'] as Timestamp).toDate()
+      lastUpdated: map['updatedAt'] != null
+          ? (map['updatedAt'] as Timestamp).toDate()
           : null,
+      createdAt: map['createdAt'] != null
+          ? (map['createdAt'] as Timestamp).toDate()
+          : null,
+      preferences: map['preferences'] as Map<String, dynamic>?,
+      isAdmin: map['isAdmin'] ?? false,
     );
   }
 
   /// Create a default profile from Firebase Auth user data
   factory UserProfile.fromFirebaseUser(String uid, String email,
       {String? displayName}) {
+    final now = DateTime.now();
     return UserProfile(
       id: uid,
       displayName: displayName ?? email.split('@').first,
       email: email,
-      lastUpdated: DateTime.now(),
+      lastUpdated: now,
+      createdAt: now,
+      preferences: {
+        'theme': 'system',
+        'notifications': true,
+      },
+      isAdmin: false,
     );
   }
 }

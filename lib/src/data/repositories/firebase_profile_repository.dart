@@ -4,12 +4,14 @@ import 'package:flutter/foundation.dart';
 
 import '../../features/profile/domain/profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
-import '../../utils/constants.dart';
 
 /// Firebase implementation of the [ProfileRepository]
 class FirebaseProfileRepository implements ProfileRepository {
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+
+  /// The collection name for users
+  static const String _usersCollection = 'users';
 
   /// Constructor
   FirebaseProfileRepository({
@@ -21,10 +23,8 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Future<UserProfile?> getUserProfile(String userId) async {
     try {
-      final doc = await _firestore
-          .collection(AppConstants.userProfilesCollection)
-          .doc(userId)
-          .get();
+      final doc =
+          await _firestore.collection(_usersCollection).doc(userId).get();
 
       if (doc.exists && doc.data() != null) {
         return UserProfile.fromMap(doc.data()!);
@@ -54,7 +54,7 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Stream<UserProfile?> getUserProfileStream(String userId) {
     return _firestore
-        .collection(AppConstants.userProfilesCollection)
+        .collection(_usersCollection)
         .doc(userId)
         .snapshots()
         .map((doc) {
@@ -68,10 +68,7 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Future<void> saveUserProfile(UserProfile profile) async {
     try {
-      await _firestore
-          .collection(AppConstants.userProfilesCollection)
-          .doc(profile.id)
-          .set(
+      await _firestore.collection(_usersCollection).doc(profile.id).set(
             profile.copyWith(lastUpdated: DateTime.now()).toMap(),
             SetOptions(merge: true),
           );
@@ -92,10 +89,7 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Future<void> updateProfilePhoto(String userId, String photoUrl) async {
     try {
-      await _firestore
-          .collection(AppConstants.userProfilesCollection)
-          .doc(userId)
-          .update({
+      await _firestore.collection(_usersCollection).doc(userId).update({
         'photoUrl': photoUrl,
         'lastUpdated': FieldValue.serverTimestamp(),
       });
@@ -114,10 +108,7 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Future<void> deleteUserProfile(String userId) async {
     try {
-      await _firestore
-          .collection(AppConstants.userProfilesCollection)
-          .doc(userId)
-          .delete();
+      await _firestore.collection(_usersCollection).doc(userId).delete();
     } catch (e) {
       debugPrint('Error deleting user profile: $e');
       rethrow;
