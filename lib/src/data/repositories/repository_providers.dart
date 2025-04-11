@@ -9,11 +9,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../features/auth/domain/auth_repository.dart';
 import '../../features/nutrition/domain/food_repository.dart';
 import '../../features/nutrition/domain/nutrition_repository.dart';
+import '../../features/profile/domain/profile_repository.dart';
 import '../services/cloud_functions_service.dart';
 import '../services/fatsecret_service.dart';
 import 'firebase_auth_repository.dart';
 import 'firebase_food_repository.dart';
 import 'firebase_nutrition_repository.dart';
+import 'firebase_profile_repository.dart';
 
 // Firebase instances
 final _firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
@@ -111,5 +113,12 @@ final foodRepositoryProvider = Provider<FoodRepository>((ref) {
     connectivity: ref.watch(_connectivityProvider),
     fatSecretService: ref.watch(_fatSecretServiceProvider),
     cloudFunctionsService: ref.watch(cloudFunctionsServiceProvider),
+  );
+});
+
+final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
+  return FirebaseProfileRepository(
+    firestore: ref.watch(_firestoreProvider),
+    auth: ref.watch(_firebaseAuthProvider),
   );
 });

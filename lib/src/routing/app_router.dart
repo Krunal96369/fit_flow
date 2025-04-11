@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../common_widgets/app_scaffold.dart';
 import '../features/auth/application/auth_controller.dart';
+import '../features/auth/presentation/change_password_screen.dart';
+import '../features/auth/presentation/reset_password_screen.dart';
 import '../features/auth/presentation/sign_in_screen.dart';
 import '../features/auth/presentation/sign_up_screen.dart'; // Import SignUpScreen
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/nutrition/nutrition_router.dart';
 import '../features/onboarding/application/onboarding_controller.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 
@@ -42,7 +45,9 @@ bool shouldShowBottomNavBar(String path) {
   if (path.contains('/add') ||
       path.contains('/edit') ||
       path.contains('/details') ||
-      path.contains('/settings')) {
+      path.contains('/settings') ||
+      path.contains('/reset-password') ||
+      path.contains('/change-password')) {
     return false;
   }
 
@@ -72,19 +77,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       );
 
       // Allow access to auth screens if not logged in
-      final isAuthScreen =
-          state.fullPath == '/sign-in' || state.fullPath == '/sign-up';
+      final isLoginRelatedScreen = state.fullPath == '/sign-in' ||
+          state.fullPath == '/sign-up' ||
+          state.fullPath == '/reset-password' ||
+          state.fullPath?.startsWith('/reset-password') == true;
+
+      // Screens that require authentication but shouldn't redirect to dashboard when logged in
+      final isAuthRequiredSpecialScreen = state.fullPath == '/change-password';
 
       // If not logged in and not on an auth screen or onboarding, redirect to login
       if (!isLoggedIn &&
-          !isAuthScreen &&
+          !isLoginRelatedScreen &&
+          !isAuthRequiredSpecialScreen &&
           onboardingCompleted &&
           state.fullPath != '/onboarding') {
         return state.path ?? '/sign-in';
       }
 
-      // If logged in and on an auth screen, redirect to dashboard
-      if (isLoggedIn && isAuthScreen) {
+      // If logged in and on a login-related screen, redirect to dashboard
+      if (isLoggedIn && isLoginRelatedScreen) {
         return '/dashboard';
       }
 
@@ -108,6 +119,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/sign-up',
         builder: (context, state) => const SignUpScreen(),
       ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
 
       // Dashboard (main screen)
       GoRoute(path: '/', redirect: (_, __) => '/dashboard'),
@@ -122,8 +141,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // Workout routes
       GoRoute(
         path: '/workouts/new',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'New Workout'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'New Workout'),
       ),
       GoRoute(
         path: '/workouts/:id',
@@ -143,20 +162,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const NutritionGoalsScreen(),
       ),
       GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
         path: '/settings/theme',
-        builder:
-            (context, state) =>
-                const PlaceholderScreen(title: 'Theme Settings'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Theme Settings'),
       ),
       GoRoute(
         path: '/settings/accessibility',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'Accessibility'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Accessibility'),
       ),
       GoRoute(
         path: '/export',
-        builder:
-            (context, state) => const PlaceholderScreen(title: 'Export Data'),
+        builder: (context, state) =>
+            const PlaceholderScreen(title: 'Export Data'),
       ),
     ],
   );

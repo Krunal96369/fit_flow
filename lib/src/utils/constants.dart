@@ -20,7 +20,7 @@ class AppConstants {
   static const int defaultWaterGoal = 2500; // milliliters
 
   /// Firebase collections
-  static const String userProfilesCollection = 'user_profiles';
+  static const String userProfilesCollection = 'users';
   static const String workoutsCollection = 'workouts';
   static const String exercisesCollection = 'exercises';
   static const String nutritionEntriesCollection = 'nutrition_entries';
