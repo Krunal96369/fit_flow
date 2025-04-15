@@ -248,10 +248,10 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
     final backgroundColor =
         isDarkMode ? colorScheme.surfaceContainerHighest : colorScheme.surface;
     final borderColor = isDarkMode
-        ? colorScheme.outline.withOpacity(0.3)
-        : colorScheme.outline.withOpacity(0.1);
+        ? colorScheme.outline.withValues(alpha: 0.3)
+        : colorScheme.outline.withValues(alpha: 0.1);
     final iconColor = colorScheme.onSurfaceVariant;
-    final hintTextColor = colorScheme.onSurfaceVariant.withOpacity(0.7);
+    final hintTextColor = colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
@@ -265,7 +265,8 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
                 border: Border.all(color: borderColor),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.1),
+                    color:
+                        Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -371,11 +372,11 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
       // Use theme-aware colors
       final cardColor = isDarkMode
-          ? colorScheme.surfaceContainerHighest.withOpacity(0.4)
+          ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.4)
           : colorScheme.surface;
       final borderColor = isDarkMode
-          ? colorScheme.outline.withOpacity(0.3)
-          : colorScheme.outline.withOpacity(0.05);
+          ? colorScheme.outline.withValues(alpha: 0.3)
+          : colorScheme.outline.withValues(alpha: 0.05);
       final imageBackgroundColor =
           isDarkMode ? Colors.grey[800] : Colors.grey[200];
       final placeholderIconColor =
@@ -387,7 +388,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
 
       return Card(
         elevation: 1.5,
-        shadowColor: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.1),
+        shadowColor: Colors.black.withValues(alpha: isDarkMode ? 0.4 : 0.1),
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         color: cardColor,
         shape: RoundedRectangleBorder(
@@ -618,7 +619,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
       // In light mode, keep the original design
       chipBackground = lightModeBackground;
       chipText = lightModeText;
-      borderColor = lightModeText.withOpacity(0.3);
+      borderColor = lightModeText.withValues(alpha: 0.3);
     }
 
     return Container(
@@ -655,7 +656,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
               Icon(
                 Icons.search_off,
                 size: 70,
-                color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                 semanticLabel: 'No search results found',
               ),
               const SizedBox(height: 20),
@@ -714,7 +715,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.error_outline,
-                  size: 60, color: colorScheme.error.withOpacity(0.7)),
+                  size: 60, color: colorScheme.error.withValues(alpha: 0.7)),
               const SizedBox(height: 20),
               Text(
                 _error ?? 'An error occurred',
@@ -947,7 +948,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
                   Icon(
                     Icons.food_bank_outlined,
                     size: 80,
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -1076,7 +1077,7 @@ class _FoodSearchScreenState extends ConsumerState<FoodSearchScreen> {
             Icon(
               Icons.error_outline,
               size: 48,
-              color: colorScheme.error.withOpacity(0.7),
+              color: colorScheme.error.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(

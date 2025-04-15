@@ -534,9 +534,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: theme.colorScheme.onPrimary,
                       disabledBackgroundColor:
-                          theme.colorScheme.primary.withOpacity(0.6),
+                          theme.colorScheme.primary.withValues(alpha: 0.6),
                       disabledForegroundColor:
-                          theme.colorScheme.onPrimary.withOpacity(0.8),
+                          theme.colorScheme.onPrimary.withValues(alpha: 0.8),
                       minimumSize: const Size(
                           double.infinity, 50), // Larger touch target
                     ),

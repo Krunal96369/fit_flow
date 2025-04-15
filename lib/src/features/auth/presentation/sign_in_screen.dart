@@ -262,8 +262,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
     required IconData icon,
     required bool isSuccess,
   }) {
-    final theme = Theme.of(context);
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -305,7 +303,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -329,7 +327,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                   'Sign in to track your fitness journey',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    color: theme.textTheme.bodyMedium?.color
+                        ?.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -346,7 +345,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                 const SizedBox(height: 20),
                 if (_isBiometricsAvailable) ...[
                   Divider(
-                      height: 40, color: theme.dividerColor.withOpacity(0.5)),
+                      height: 40,
+                      color: theme.dividerColor.withValues(alpha: 0.5)),
                   OutlinedButton.icon(
                     onPressed: _isLoading ? null : _signInWithBiometrics,
                     icon: const Icon(Icons.fingerprint),
@@ -367,8 +367,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
                     Text(
                       "Don't have an account?",
                       style: TextStyle(
-                        color:
-                            theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        color: theme.textTheme.bodyMedium?.color
+                            ?.withValues(alpha: 0.7),
                       ),
                     ),
                     TextButton(

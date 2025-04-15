@@ -370,7 +370,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
                   child: Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
@@ -394,7 +394,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
                   'Create an account to start your fitness journey',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                    color: theme.textTheme.bodyMedium?.color
+                        ?.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -421,8 +422,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen>
                     Text(
                       'Already have an account?',
                       style: TextStyle(
-                        color:
-                            theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        color: theme.textTheme.bodyMedium?.color
+                            ?.withValues(alpha: 0.7),
                       ),
                     ),
                     TextButton(
