@@ -13,8 +13,7 @@ import 'src/data/repositories/repository_providers.dart' as repos;
 // Import domain interfaces
 import 'src/features/nutrition/domain/nutrition_repository.dart' as domain;
 import 'src/services/notification_service.dart';
-
-// Removed flutter_local_notifications import as it's now encapsulated in the service
+import 'src/services/secure_storage/secure_storage_service.dart';
 
 void main() async {
   // Ensure widgets are initialized
@@ -61,6 +60,11 @@ void main() async {
     ],
   );
 
+  // Initialize SecureStorageService
+  final secureStorage = container.read(secureStorageProvider);
+  // Run a comprehensive test of secure storage
+  await _testSecureStorage(secureStorage);
+
   // Pre-initialize repositories and verify they're loaded correctly
   final foodRepo = container.read(repos.foodRepositoryProvider);
   debugPrint('==============================================================');
@@ -85,4 +89,58 @@ void main() async {
       child: const FitFlowApp(),
     ),
   );
+}
+
+/// Test function to verify the secure storage is working correctly at startup
+Future<void> _testSecureStorage(SecureStorageService secureStorage) async {
+  try {
+    debugPrint('SECURE STORAGE TEST: Starting diagnostic test...');
+
+    // Test data
+    const testKey = 'diagnostic_test_key';
+    final testValue = 'test_value_${DateTime.now().toIso8601String()}';
+
+    // Test setting a value
+    debugPrint('SECURE STORAGE TEST: Setting test data');
+    final setSuccess = await secureStorage.setSecureData(testKey, testValue);
+    debugPrint('SECURE STORAGE TEST: Set success: $setSuccess');
+
+    // Test retrieving the value
+    final retrievedValue = await secureStorage.getSecureData(testKey);
+    debugPrint(
+        'SECURE STORAGE TEST: Retrieved value exists: ${retrievedValue != null}');
+
+    // Test that values match
+    final matches = retrievedValue == testValue;
+    debugPrint('SECURE STORAGE TEST: Values match: $matches');
+
+    // Test containsKey
+    final hasKey = await secureStorage.containsKey(testKey);
+    debugPrint('SECURE STORAGE TEST: Contains key: $hasKey');
+
+    // Test secure credential keys
+    final hasEmailKey = await secureStorage.containsKey('auth_email');
+    final hasPasswordKey = await secureStorage.containsKey('auth_password');
+    final hasBiometricEnabledKey =
+        await secureStorage.containsKey('biometric_enabled');
+
+    debugPrint('SECURE STORAGE TEST: Has email key: $hasEmailKey');
+    debugPrint('SECURE STORAGE TEST: Has password key: $hasPasswordKey');
+    debugPrint(
+        'SECURE STORAGE TEST: Has biometric enabled key: $hasBiometricEnabledKey');
+
+    // Report overall status
+    if (setSuccess && matches && hasKey) {
+      debugPrint(
+          'SECURE STORAGE TEST: PASSED ✅ - Storage functioning correctly');
+    } else {
+      debugPrint(
+          'SECURE STORAGE TEST: FAILED ❌ - Storage not working properly');
+    }
+
+    debugPrint(
+        '==============================================================');
+  } catch (e) {
+    debugPrint('SECURE STORAGE TEST: Error during diagnostic test: $e');
+  }
 }

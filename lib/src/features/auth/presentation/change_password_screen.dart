@@ -79,16 +79,19 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     double strength = 0;
 
     // Length check (up to 0.3)
-    if (password.length >= 8)
+    if (password.length >= 8) {
       strength += 0.3;
-    else if (password.length >= 6) strength += 0.15;
+    } else if (password.length >= 6) {
+      strength += 0.15;
+    }
 
     // Character variety checks (each worth 0.175 = 0.7 total)
     if (password.contains(RegExp(r'[A-Z]'))) strength += 0.175; // uppercase
     if (password.contains(RegExp(r'[a-z]'))) strength += 0.175; // lowercase
     if (password.contains(RegExp(r'[0-9]'))) strength += 0.175; // digits
-    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')))
+    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
       strength += 0.175; // special chars
+    }
 
     // Set UI elements based on strength
     Color strengthColor;
@@ -175,6 +178,27 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             newPassword: _newPasswordController.text,
           );
 
+      // Check if biometrics are enabled and update stored credentials if needed
+      final authController = ref.read(authControllerProvider);
+      final isBiometricEnabled = await authController.isBiometricAuthEnabled();
+      final hasCredentials = await authController.hasStoredCredentials();
+
+      // If biometrics are enabled, we need to update the stored credentials
+      if (isBiometricEnabled && hasCredentials) {
+        debugPrint('Updating biometric credentials after password change');
+        // Get current user's email
+        final currentUser = authController.currentUser;
+        if (currentUser?.email != null) {
+          // Update credentials for biometrics
+          final success = await authController.enableBiometricAuth(
+            email: currentUser!.email!,
+            password: _newPasswordController.text,
+          );
+          debugPrint(
+              'Biometric credentials update ${success ? 'successful' : 'failed'}');
+        }
+      }
+
       if (mounted) {
         // Show success dialog
         await showDialog(
@@ -189,9 +213,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
-                  // Navigate to sign in screen after signing out
-                  context.go('/sign-in');
+                  ref.read(authControllerProvider).signOut();
                 },
                 child: const Text('OK'),
               ),

@@ -127,10 +127,10 @@ class ProfileScreen extends ConsumerWidget {
                   },
                 ),
                 _SettingItem(
-                  icon: Icons.lock,
-                  title: 'Change Password',
+                  icon: Icons.fingerprint,
+                  title: 'Security & Biometrics',
                   onTap: () {
-                    context.push('/change-password');
+                    context.push('/settings/security');
                   },
                 ),
               ],

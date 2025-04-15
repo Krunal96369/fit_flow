@@ -402,7 +402,7 @@ class FirebaseNutritionRepository implements NutritionRepository {
     }
   }
 
-  @override
+
   Future<NutritionEntry?> getEntryById(String entryId) async {
     try {
       // Try local cache first

@@ -1,25 +1,35 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:local_auth/local_auth.dart';
 
+import '../../../data/repositories/firebase_auth_repository.dart';
+import '../../../data/repositories/repository_providers.dart';
+import '../../../services/biometric/biometric_service.dart' as bio_service;
 import '../domain/auth_repository.dart';
 import '../domain/models/auth_credentials.dart';
-import '../../../data/repositories/repository_providers.dart';
 
+/// Stream provider for authentication state changes
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
 
+/// Provider for the AuthController
 final authControllerProvider = Provider<AuthController>((ref) {
   final authRepository = ref.watch(authRepositoryProvider);
-  return AuthController(FirebaseAuth.instance, authRepository);
+  final biometricService = ref.watch(bio_service.biometricServiceProvider);
+  return AuthController(
+      FirebaseAuth.instance, authRepository, biometricService);
 });
 
+/// Controller that manages authentication operations
 class AuthController {
   final FirebaseAuth _auth;
   final AuthRepository _authRepository;
+  final bio_service.BiometricService _biometricService;
 
-  AuthController(this._auth, this._authRepository);
+  AuthController(this._auth, this._authRepository, this._biometricService);
 
+  /// Sign in with email and password
   Future<void> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -29,6 +39,7 @@ class AuthController {
     );
   }
 
+  /// Create user with email and password
   Future<void> createUserWithEmailAndPassword({
     required String email,
     required String password,
@@ -38,10 +49,12 @@ class AuthController {
     );
   }
 
+  /// Sign in with a credential (e.g. phone auth)
   Future<void> signInWithCredential(AuthCredential credential) async {
     await _auth.signInWithCredential(credential);
   }
 
+  /// Verify phone number for SMS authentication
   Future<void> verifyPhoneNumber({
     required String phoneNumber,
     required void Function(PhoneAuthCredential) verificationCompleted,
@@ -58,14 +71,17 @@ class AuthController {
     );
   }
 
+  /// Sign out the current user
   Future<void> signOut() async {
     await _authRepository.signOut();
   }
 
+  /// Send password reset email
   Future<void> resetPassword(String email) async {
     await _authRepository.resetPassword(email);
   }
 
+  /// Change password for authenticated user
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -76,5 +92,49 @@ class AuthController {
     );
   }
 
+  /// Get current authenticated user
   User? get currentUser => _auth.currentUser;
+
+  /// Check if biometric authentication is available on the device
+  Future<bool> isBiometricsAvailable() async {
+    return _biometricService.isBiometricsAvailable();
+  }
+
+  /// Get available biometric types (e.g. fingerprint, face)
+  Future<List<BiometricType>> getAvailableBiometrics() async {
+    return _biometricService.getAvailableBiometrics();
+  }
+
+  Future<bool> enableBiometricAuth({
+    required String email,
+    required String password,
+  }) async {
+    return _authRepository.enableBiometricAuth(
+      SignInCredentials(email: email, password: password),
+    );
+  }
+
+  Future<bool> enableBiometricAuthForCurrentUser() async {
+    return _authRepository.enableBiometricAuth(SignInCredentials.empty());
+  }
+
+  /// Disable biometric authentication for the current user
+  Future<bool> disableBiometricAuth() async {
+    return _authRepository.disableBiometricAuth();
+  }
+
+  /// Check if biometric authentication is enabled for the current user
+  Future<bool> isBiometricAuthEnabled() async {
+    return _authRepository.isBiometricAuthEnabled();
+  }
+
+  /// Check if credentials are stored for the current user
+  Future<bool> hasStoredCredentials() async {
+    return (_authRepository as FirebaseAuthRepository).hasStoredCredentials();
+  }
+
+  /// Sign in with biometric authentication
+  Future<bool> signInWithBiometrics() async {
+    return _authRepository.signInWithBiometrics();
+  }
 }

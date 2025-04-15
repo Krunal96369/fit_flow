@@ -33,4 +33,19 @@ abstract class AuthRepository {
     required String currentPassword,
     required String newPassword,
   });
+
+  /// Enables biometric authentication for the current user
+  /// Stores user credentials securely for later biometric authentication
+  Future<bool> enableBiometricAuth(SignInCredentials credentials);
+
+  /// Disables biometric authentication for the current user
+  /// Removes securely stored credentials
+  Future<bool> disableBiometricAuth();
+
+  /// Check if biometric authentication is enabled for the current user
+  Future<bool> isBiometricAuthEnabled();
+
+  /// Authenticates the user using device biometrics
+  /// Returns true if authentication was successful, false otherwise
+  Future<bool> signInWithBiometrics();
 }

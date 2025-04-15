@@ -15,6 +15,7 @@ import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/settings/presentation/security_settings_screen.dart';
 
 // Placeholder screens for routes we haven't implemented yet
 class PlaceholderScreen extends StatelessWidget {
@@ -83,7 +84,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           state.fullPath?.startsWith('/reset-password') == true;
 
       // Screens that require authentication but shouldn't redirect to dashboard when logged in
-      final isAuthRequiredSpecialScreen = state.fullPath == '/change-password';
+      final isAuthRequiredSpecialScreen =
+          state.fullPath == '/change-password' ||
+              state.fullPath == '/settings/security';
 
       // If not logged in and not on an auth screen or onboarding, redirect to login
       if (!isLoggedIn &&
@@ -174,6 +177,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings/accessibility',
         builder: (context, state) =>
             const PlaceholderScreen(title: 'Accessibility'),
+      ),
+      GoRoute(
+        path: '/settings/security',
+        builder: (context, state) => const SecuritySettingsScreen(),
       ),
       GoRoute(
         path: '/export',

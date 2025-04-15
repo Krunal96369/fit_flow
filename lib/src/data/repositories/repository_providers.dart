@@ -10,6 +10,8 @@ import '../../features/auth/domain/auth_repository.dart';
 import '../../features/nutrition/domain/food_repository.dart';
 import '../../features/nutrition/domain/nutrition_repository.dart';
 import '../../features/profile/domain/profile_repository.dart';
+import '../../services/biometric/biometric_service.dart';
+import '../../services/secure_storage/secure_storage_service.dart';
 import '../services/cloud_functions_service.dart';
 import '../services/fatsecret_service.dart';
 import 'firebase_auth_repository.dart';
@@ -86,11 +88,23 @@ final cloudFunctionsServiceProvider = Provider<CloudFunctionsService>((ref) {
   return CloudFunctionsService(functions: functions);
 });
 
+// Biometric Service provider
+final biometricServiceProvider = Provider<BiometricService>((ref) {
+  return BiometricServiceImpl();
+});
+
+// Secure Storage Service provider
+final secureStorageProvider = Provider<SecureStorageService>((ref) {
+  return SecureStorageServiceImpl();
+});
+
 // Repository providers
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return FirebaseAuthRepository(
     ref.watch(_firebaseAuthProvider),
     firestore: ref.watch(_firestoreProvider),
+    biometricService: ref.watch(biometricServiceProvider),
+    secureStorage: ref.watch(secureStorageProvider),
   );
 });
 
