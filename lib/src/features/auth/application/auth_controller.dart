@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/repositories/repository_providers.dart';
+import '../../onboarding/application/onboarding_controller.dart';
 import '../domain/auth_repository.dart';
 import '../domain/models/auth_credentials.dart';
-import '../../../data/repositories/repository_providers.dart';
 
 final authStateProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
@@ -11,14 +12,15 @@ final authStateProvider = StreamProvider<User?>((ref) {
 
 final authControllerProvider = Provider<AuthController>((ref) {
   final authRepository = ref.watch(authRepositoryProvider);
-  return AuthController(FirebaseAuth.instance, authRepository);
+  return AuthController(FirebaseAuth.instance, authRepository, ref);
 });
 
 class AuthController {
   final FirebaseAuth _auth;
   final AuthRepository _authRepository;
+  final Ref _ref;
 
-  AuthController(this._auth, this._authRepository);
+  AuthController(this._auth, this._authRepository, this._ref);
 
   Future<void> signInWithEmailAndPassword({
     required String email,
@@ -36,6 +38,9 @@ class AuthController {
     await _authRepository.createUserWithCredentials(
       SignUpCredentials(email: email, password: password),
     );
+
+    // Reset onboarding status for new users
+    await _ref.read(onboardingCompletedProvider.notifier).resetOnboarding();
   }
 
   Future<void> signInWithCredential(AuthCredential credential) async {

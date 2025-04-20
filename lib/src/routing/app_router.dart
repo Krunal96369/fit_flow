@@ -11,7 +11,7 @@ import '../features/auth/presentation/sign_up_screen.dart'; // Import SignUpScre
 import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/nutrition/nutrition_router.dart';
 import '../features/onboarding/application/onboarding_controller.dart';
-import '../features/onboarding/presentation/onboarding_screen.dart';
+import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
@@ -64,12 +64,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     debugLogDiagnostics: true,
     redirect: (context, state) {
-      // First check if onboarding is completed
-      if (!onboardingCompleted && state.fullPath != '/onboarding') {
-        return '/onboarding';
-      }
-
-      // Then check authentication
+      // First check authentication
       final isLoggedIn = authState.when(
         data: (user) => user != null,
         loading: () => false,
@@ -85,18 +80,29 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // Screens that require authentication but shouldn't redirect to dashboard when logged in
       final isAuthRequiredSpecialScreen = state.fullPath == '/change-password';
 
-      // If not logged in and not on an auth screen or onboarding, redirect to login
+      // If not logged in and not on an auth screen, redirect to login
       if (!isLoggedIn &&
           !isLoginRelatedScreen &&
-          !isAuthRequiredSpecialScreen &&
-          onboardingCompleted &&
-          state.fullPath != '/onboarding') {
+          !isAuthRequiredSpecialScreen) {
         return state.path ?? '/sign-in';
       }
 
-      // If logged in and on a login-related screen, redirect to dashboard
+      // If logged in and on a login-related screen, redirect to dashboard or onboarding
       if (isLoggedIn && isLoginRelatedScreen) {
+        // If onboarding not completed, redirect to onboarding
+        if (!onboardingCompleted) {
+          return '/onboarding';
+        }
+        // Otherwise go to dashboard
         return '/dashboard';
+      }
+
+      // If logged in and onboarding not completed, redirect to onboarding
+      // Skip this check if already on the onboarding screen
+      if (isLoggedIn &&
+          !onboardingCompleted &&
+          state.fullPath != '/onboarding') {
+        return '/onboarding';
       }
 
       // No redirection needed
