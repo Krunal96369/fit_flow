@@ -68,10 +68,22 @@ class FirebaseProfileRepository implements ProfileRepository {
   @override
   Future<void> saveUserProfile(UserProfile profile) async {
     try {
+      final profileData = profile.copyWith(lastUpdated: DateTime.now()).toMap();
+
+      // Step 1: Set the main profile document with merge: true to preserve other fields
       await _firestore.collection(_usersCollection).doc(profile.id).set(
-            profile.copyWith(lastUpdated: DateTime.now()).toMap(),
+            profileData,
             SetOptions(merge: true),
           );
+
+      // Step 2: Explicitly update gender and dateOfBirth with field-level updates
+      // This ensures these fields are updated even when null
+      await _firestore.collection(_usersCollection).doc(profile.id).update({
+        'gender': profile.gender,
+        'dateOfBirth': profile.dateOfBirth != null
+            ? Timestamp.fromDate(profile.dateOfBirth!)
+            : null,
+      });
 
       // Update display name in Firebase Auth if it has changed
       final firebaseUser = _auth.currentUser;
