@@ -16,6 +16,7 @@ import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
 import '../features/settings/presentation/security_settings_screen.dart';
+import '../features/workouts/workout_router.dart';
 
 // Placeholder screens for routes we haven't implemented yet
 class PlaceholderScreen extends StatelessWidget {
@@ -142,18 +143,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ...nutritionRoutes,
 
       // Workout routes
-      GoRoute(
-        path: '/workouts/new',
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'New Workout'),
-      ),
-      GoRoute(
-        path: '/workouts/:id',
-        builder: (context, state) {
-          final workoutId = state.pathParameters['id']!;
-          return PlaceholderScreen(title: 'Workout: $workoutId');
-        },
-      ),
+      ...workoutRoutes,
 
       // Profile & Settings routes
       GoRoute(

@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../common_widgets/app_scaffold.dart';
+import '../application/workout_controller.dart';
+import '../domain/models/workout_session.dart';
+import '../workout_router.dart';
 
 class WorkoutsScreen extends ConsumerWidget {
   const WorkoutsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the recent workouts provider
+    final recentWorkoutsAsync = ref.watch(recentWorkoutsProvider);
+
     return AppScaffold(
       title: 'Workouts',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.fitness_center),
+          onPressed: () {
+            // Navigate to exercise library
+            context.goToExerciseLibrary();
+          },
+          tooltip: 'Exercise Library',
+        ),
+      ],
       body: Column(
         children: [
           // Recent workouts list
@@ -25,30 +42,31 @@ class WorkoutsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: ListView(
-                      children: [
-                        _buildWorkoutItem(
-                          context,
-                          title: 'Upper Body',
-                          date: 'Yesterday',
-                          duration: '45 minutes',
-                          exercises: 6,
-                        ),
-                        _buildWorkoutItem(
-                          context,
-                          title: 'Lower Body',
-                          date: 'March 25, 2025',
-                          duration: '60 minutes',
-                          exercises: 8,
-                        ),
-                        _buildWorkoutItem(
-                          context,
-                          title: 'Cardio',
-                          date: 'March 23, 2025',
-                          duration: '30 minutes',
-                          exercises: 3,
-                        ),
-                      ],
+                    child: recentWorkoutsAsync.when(
+                      data: (workouts) {
+                        if (workouts.isEmpty) {
+                          return const Center(
+                            child: Text('No recent workouts found.'),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: workouts.length,
+                          itemBuilder: (context, index) {
+                            final workout = workouts[index];
+                            return _buildWorkoutItem(
+                              context,
+                              workout: workout,
+                            );
+                          },
+                        );
+                      },
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                      error: (error, stack) => Center(
+                        child: Text('Error loading workouts: $error'),
+                      ),
                     ),
                   ),
                 ],
@@ -60,10 +78,11 @@ class WorkoutsScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16.0),
             child: ElevatedButton.icon(
               onPressed: () {
-                // This would open the workout creation screen
+                // Navigate to log workout screen
+                context.goToLogWorkout();
               },
               icon: const Icon(Icons.add),
-              label: const Text('Add New Workout'),
+              label: const Text('Start New Workout'),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
               ),
@@ -73,8 +92,10 @@ class WorkoutsScreen extends ConsumerWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Add new workout
+          // Navigate to log workout screen
+          context.goToLogWorkout();
         },
+        tooltip: 'Start New Workout',
         child: const Icon(Icons.add),
       ),
     );
@@ -82,30 +103,46 @@ class WorkoutsScreen extends ConsumerWidget {
 
   Widget _buildWorkoutItem(
     BuildContext context, {
-    required String title,
-    required String date,
-    required String duration,
-    required int exercises,
+    required WorkoutSession workout,
   }) {
+    // Format date and calculate duration
+    final dateFormat = DateFormat.yMMMd().add_jm();
+    final formattedDate = dateFormat.format(workout.startTime);
+
+    // Calculate duration if the workout is complete
+    final durationText = workout.duration != null
+        ? '${workout.duration!.inMinutes} minutes'
+        : 'In Progress';
+
+    // Count exercises
+    final exerciseCount = workout.performedExercises.length;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).colorScheme.primary,
-          child: const Icon(Icons.fitness_center, color: Colors.white),
+          child: workout.endTime != null
+              ? const Icon(Icons.fitness_center, color: Colors.white)
+              : const Icon(Icons.directions_run, color: Colors.white),
         ),
-        title: Text(title),
-        subtitle: Text(date),
+        title: Text(
+            workout.endTime != null ? 'Completed Workout' : 'Active Workout'),
+        subtitle: Text(formattedDate),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(duration),
-            Text('$exercises exercises'),
+            Text(durationText),
+            Text('$exerciseCount exercises'),
           ],
         ),
         onTap: () {
           // Navigate to workout details
+          // This would be implemented later
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Workout details coming soon!')),
+          );
         },
       ),
     );
