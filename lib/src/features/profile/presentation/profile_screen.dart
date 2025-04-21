@@ -17,7 +17,6 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final currentTheme = ref.watch(themeModeProvider);
     final authState = ref.watch(authStateProvider);
     final userProfileAsync = ref.watch(userProfileStreamProvider);
@@ -75,8 +74,6 @@ class ProfileScreen extends ConsumerWidget {
     UserProfile profile,
     UnitSystem unitSystem,
   ) {
-    final theme = Theme.of(context);
-
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -86,13 +83,13 @@ class ProfileScreen extends ConsumerWidget {
             // User photo (custom or default)
             CircleAvatar(
               radius: 50,
-              backgroundColor: theme.colorScheme.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               backgroundImage: profile.photoUrl != null
                   ? NetworkImage(profile.photoUrl!)
                   : null,
               child: profile.photoUrl == null
                   ? Icon(Icons.person,
-                      size: 50, color: theme.colorScheme.onPrimary)
+                      size: 50, color: Theme.of(context).colorScheme.onPrimary)
                   : null,
             ),
             const SizedBox(height: 16),
@@ -127,10 +124,10 @@ class ProfileScreen extends ConsumerWidget {
                   },
                 ),
                 _SettingItem(
-                  icon: Icons.lock,
-                  title: 'Change Password',
+                  icon: Icons.fingerprint,
+                  title: 'Security & Biometrics',
                   onTap: () {
-                    context.push('/change-password');
+                    context.push('/settings/security');
                   },
                 ),
               ],

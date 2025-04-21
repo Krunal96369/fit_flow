@@ -58,6 +58,7 @@ class FirebaseFoodRepository implements FoodRepository {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
       result,
     ) {
+      // The result type is a single ConnectivityResult, not a list
       if (result != ConnectivityResult.none) {
         syncOfflineData();
       }
@@ -92,17 +93,8 @@ class FirebaseFoodRepository implements FoodRepository {
 
   /// Check if device is connected to the internet
   Future<bool> _isConnected() async {
-    try {
-      debugPrint('NETWORK DEBUG: Checking network connectivity...');
-
-      // Force connectivity to true to ensure Cloud Functions are called
-      debugPrint('NETWORK DEBUG: Forcing connectivity to TRUE for testing');
-      return true;
-    } catch (e) {
-      debugPrint('NETWORK DEBUG: Error checking connectivity: $e');
-      // Default to true for testing
-      return true;
-    }
+    final connectivityResult = await _connectivity.checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
   }
 
   /// Initialize the FatSecret service

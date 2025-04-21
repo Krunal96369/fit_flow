@@ -47,5 +47,7 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs camera access to scan barcodes for food items</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>We use Face ID to securely authenticate you into the app</string>
 </dict>
 </plist>

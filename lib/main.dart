@@ -14,8 +14,6 @@ import 'src/data/repositories/repository_providers.dart' as repos;
 import 'src/features/nutrition/domain/nutrition_repository.dart' as domain;
 import 'src/services/notification_service.dart';
 
-// Removed flutter_local_notifications import as it's now encapsulated in the service
-
 void main() async {
   // Ensure widgets are initialized
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,8 +77,8 @@ void main() async {
       // Explicitly override the mock nutrition repository with the real one
       overrides: [
         // This fixes the issue where the nutrition dashboard is using the mock repository
-        domain.nutritionRepositoryProvider
-            .overrideWithProvider(repos.nutritionRepositoryProvider),
+        domain.nutritionRepositoryProvider.overrideWith(
+            (ref) => ref.watch(repos.nutritionRepositoryProvider)),
       ],
       child: const FitFlowApp(),
     ),

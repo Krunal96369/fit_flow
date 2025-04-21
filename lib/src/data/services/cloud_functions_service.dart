@@ -449,7 +449,7 @@ class CloudFunctionsService {
     }
   }
 
-  /// Helper method to safely convert Map<Object?, Object?> to Map<String, dynamic>
+  /// Helper method to safely convert `Map<Object?, Object?>` to `Map<String, dynamic>`
   Map<String, dynamic> _convertToStringDynamicMap(Map map) {
     final Map<String, dynamic> result = {};
 

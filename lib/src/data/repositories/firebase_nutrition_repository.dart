@@ -49,6 +49,7 @@ class FirebaseNutritionRepository implements NutritionRepository {
     _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
       result,
     ) {
+      // The result type is a single ConnectivityResult, not a list
       if (result != ConnectivityResult.none) {
         syncOfflineData();
       }
@@ -122,8 +123,8 @@ class FirebaseNutritionRepository implements NutritionRepository {
   }
 
   Future<bool> _isConnected() async {
-    final result = await _connectivity.checkConnectivity();
-    return result != ConnectivityResult.none;
+    final connectivityResult = await _connectivity.checkConnectivity();
+    return connectivityResult != ConnectivityResult.none;
   }
 
   // Helper method to ensure date keys are formatted consistently with two-digit months and days
@@ -402,7 +403,6 @@ class FirebaseNutritionRepository implements NutritionRepository {
     }
   }
 
-  @override
   Future<NutritionEntry?> getEntryById(String entryId) async {
     try {
       // Try local cache first
@@ -708,8 +708,8 @@ class FirebaseNutritionRepository implements NutritionRepository {
       try {
         final today = DateTime.now();
         final normalizedDate = DateTime(today.year, today.month, today.day);
-        final dateKey = _formatDateKey(normalizedDate);
-        final summaryId = '${goals.userId}-$dateKey';
+        // dateKey not used directly since we pass normalizedDate to getDailySummary
+        // final dateKey = _formatDateKey(normalizedDate);
 
         // Check if summary exists for today
         final summary = await getDailySummary(goals.userId, normalizedDate);
@@ -1017,12 +1017,13 @@ class FirebaseNutritionRepository implements NutritionRepository {
   }
 
   /// Gets a query reference to a user's nutrition summaries
-  Query _getUserSummariesQuery(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection(_summariesCollection);
-  }
+  // Keeping this method for future use but commenting it out since it's currently unused
+  // Query _getUserSummariesQuery(String userId) {
+  //   return _firestore
+  //       .collection('users')
+  //       .doc(userId)
+  //       .collection(_summariesCollection);
+  // }
 
   @override
   Stream<DailyNutritionSummary> getDailySummaryStream(
@@ -1189,7 +1190,8 @@ class FirebaseNutritionRepository implements NutritionRepository {
         'NUTRITION REPO: Setting up stream for entries - user: $userId, date: $date');
     try {
       final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
+      // Note: We're using dateKey-based query rather than timestamp range
+      // final endOfDay = startOfDay.add(const Duration(days: 1));
       final dateKey = _formatDateKey(startOfDay);
 
       debugPrint('NUTRITION REPO: Using dateKey: $dateKey for query');
