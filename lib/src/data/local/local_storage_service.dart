@@ -84,3 +84,15 @@ class LocalStorageServiceImpl implements LocalStorageService {
     return result;
   }
 }
+
+/// Keys used for storing data in shared preferences
+class PreferenceKeys {
+  /// The key for onboarding completion status
+  static const String onboardingCompleted = 'onboarding_completed';
+
+  /// The key for theme mode
+  static const String themeMode = 'theme_mode';
+
+  /// Key for permissions already requested
+  static const String permissionsRequested = 'permissions_requested';
+}
