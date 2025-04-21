@@ -6,6 +6,7 @@ import 'package:intl_phone_field/intl_phone_field.dart';
 import 'package:intl_phone_field/phone_number.dart';
 
 import '../../../common_widgets/accessible_button.dart';
+import '../../../common_widgets/app_logo.dart';
 import '../../../common_widgets/error_dialog.dart';
 import '../../../services/error/error_service.dart';
 import '../application/auth_controller.dart';
@@ -215,9 +216,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // App Logo/Branding
-              Icon(
-                Icons.fitness_center,
-                size: 80,
+              AppLogo(
+                size: 120,
                 color: Theme.of(context).primaryColor,
               ),
               const SizedBox(height: 32),

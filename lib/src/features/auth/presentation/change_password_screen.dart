@@ -79,16 +79,17 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     double strength = 0;
 
     // Length check (up to 0.3)
-    if (password.length >= 8)
+    if (password.length >= 8) {
       strength += 0.3;
-    else if (password.length >= 6) strength += 0.15;
+    } else if (password.length >= 6) strength += 0.15;
 
     // Character variety checks (each worth 0.175 = 0.7 total)
     if (password.contains(RegExp(r'[A-Z]'))) strength += 0.175; // uppercase
     if (password.contains(RegExp(r'[a-z]'))) strength += 0.175; // lowercase
     if (password.contains(RegExp(r'[0-9]'))) strength += 0.175; // digits
-    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')))
+    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
       strength += 0.175; // special chars
+    }
 
     // Set UI elements based on strength
     Color strengthColor;

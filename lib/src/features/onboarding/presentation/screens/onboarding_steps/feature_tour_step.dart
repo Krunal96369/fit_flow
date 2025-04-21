@@ -35,11 +35,14 @@ class FeatureTourStep extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            const Text(
+            Text(
               'Discover what FitFlow can do for your fitness journey',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.black54,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
             ),
 
@@ -96,7 +99,7 @@ class FeatureTourStep extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.secondary.withOpacity(0.1),
+                color: colorScheme.secondary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: colorScheme.secondary, width: 1),
               ),
@@ -137,7 +140,7 @@ class FeatureTourStep extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -152,7 +155,7 @@ class FeatureTourStep extends StatelessWidget {
               width: 60,
               height: 60,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 30),
@@ -180,7 +183,7 @@ class FeatureTourStep extends StatelessWidget {
                       color: Theme.of(context)
                           .colorScheme
                           .onSurface
-                          .withOpacity(0.6),
+                          .withValues(alpha: 0.6),
                     ),
                   ),
                 ],

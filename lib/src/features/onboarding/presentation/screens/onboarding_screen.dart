@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/onboarding_controller.dart';
+import '../../application/onboarding_to_profile_service.dart';
 import '../../domain/models/onboarding_step.dart';
 import '../widgets/onboarding_progress_indicator.dart';
 import 'onboarding_steps/completion_step.dart';
@@ -188,7 +189,57 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
   }
 
-  void _goToNextStep() {
+  // Updated implementation to save data using the providers
+  void _goToNextStep() async {
+    // First, get the current state
+    final currentIndex = ref.read(currentStepIndexProvider);
+    final stepsAsync = ref.watch(onboardingStepsProvider);
+
+    // Try to get steps data
+    if (stepsAsync.hasValue) {
+      final steps = stepsAsync.value!;
+      final currentStep = steps[currentIndex];
+
+      // Get the profile service
+      final profileService = ref.read(onboardingToProfileServiceProvider);
+
+      if (currentStep.id == 'profile_setup') {
+        // Get profile data from the provider
+        final profileData = ref.read(profileFormProvider);
+
+        // Save profile data to Firebase
+        try {
+          await profileService.saveProfileData(
+            displayName: profileData.displayName,
+            gender: profileData.gender,
+            dateOfBirth: profileData.dateOfBirth,
+            height: profileData.height,
+            weight: profileData.weight,
+            heightUnit: profileData.heightUnit,
+            weightUnit: profileData.weightUnit,
+          );
+          debugPrint('Successfully saved profile data from provider');
+        } catch (e) {
+          debugPrint('Error saving profile data: $e');
+        }
+      } else if (currentStep.id == 'goal_setting') {
+        // Get fitness goals from the provider
+        final goalsData = ref.read(fitnessGoalsProvider);
+
+        // Save fitness goals to Firebase
+        try {
+          await profileService.saveFitnessGoals(
+            primaryGoal: goalsData.primaryGoal,
+            workoutsPerWeek: goalsData.workoutsPerWeek,
+          );
+          debugPrint('Successfully saved fitness goals from provider');
+        } catch (e) {
+          debugPrint('Error saving fitness goals: $e');
+        }
+      }
+    }
+
+    // Proceed to next step
     ref.read(onboardingControllerProvider.notifier).goToNextStep();
   }
 

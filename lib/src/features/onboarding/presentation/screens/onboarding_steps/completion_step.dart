@@ -41,7 +41,8 @@ class _CompletionStepState extends State<CompletionStep>
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -76,11 +77,14 @@ class _CompletionStepState extends State<CompletionStep>
           const SizedBox(height: 16),
 
           // Description
-          const Text(
+          Text(
             'Your account is ready to use. Get started on your fitness journey now!',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.black54,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.6),
             ),
             textAlign: TextAlign.center,
           ),
@@ -91,7 +95,8 @@ class _CompletionStepState extends State<CompletionStep>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color:
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../common_widgets/app_logo.dart';
+
 /// A common bottom navigation bar that can be used across all screens
 /// Uses Material 3 NavigationBar (updated version of BottomNavigationBar)
 class AppBottomNavigation extends StatelessWidget {
@@ -28,8 +30,8 @@ class AppBottomNavigation extends StatelessWidget {
           label: 'Dashboard',
         ),
         NavigationDestination(
-          icon: Icon(Icons.fitness_center_outlined),
-          selectedIcon: Icon(Icons.fitness_center),
+          icon: AppLogo(useImage: true, size: 24),
+          selectedIcon: AppLogo(useImage: true, size: 24),
           label: 'Workouts',
         ),
         NavigationDestination(

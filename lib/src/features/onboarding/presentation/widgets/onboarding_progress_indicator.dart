@@ -115,6 +115,9 @@ class OnboardingProgressIndicator extends StatelessWidget {
   Widget _buildStepIndicator(int index, bool isActive, bool isDone, double size,
       Color activeColor, Color inactiveColor) {
     final color = isActive ? activeColor : inactiveColor;
+    // Get contrasting color for text and icons
+    final contrastColor =
+        activeColor.computeLuminance() > 0.5 ? Colors.black : Colors.white;
 
     // Container that holds either a dot or a number
     return Container(
@@ -134,13 +137,13 @@ class OnboardingProgressIndicator extends StatelessWidget {
             ? Icon(
                 Icons.check,
                 size: size * 0.6,
-                color: Colors.white,
+                color: contrastColor,
               )
             : showStepNumbers
                 ? Text(
                     '${index + 1}',
                     style: TextStyle(
-                      color: isActive ? Colors.white : color,
+                      color: isActive ? contrastColor : color,
                       fontWeight: FontWeight.bold,
                       fontSize: size * 0.5,
                     ),

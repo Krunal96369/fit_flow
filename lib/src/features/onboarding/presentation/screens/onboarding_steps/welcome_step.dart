@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../common_widgets/app_logo.dart';
+
 /// The welcome step in the onboarding process
 class WelcomeStep extends StatelessWidget {
   /// Constructor
@@ -13,9 +15,8 @@ class WelcomeStep extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // App logo
-          Icon(
-            Icons.fitness_center,
-            size: 80,
+          AppLogo(
+            size: 120,
             color: Theme.of(context).colorScheme.primary,
           ),
 
@@ -34,11 +35,14 @@ class WelcomeStep extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Welcome description
-          const Text(
+          Text(
             'Your personalized fitness companion for tracking workouts, nutrition, and achieving your health goals.',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.black54,
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.6),
             ),
             textAlign: TextAlign.center,
           ),
@@ -83,45 +87,54 @@ class WelcomeStep extends StatelessWidget {
   }) {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return Row(
-      children: [
-        Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(
-            icon,
-            size: 30,
-            color: primaryColor,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                size: 30,
+                color: primaryColor,
               ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.black54,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

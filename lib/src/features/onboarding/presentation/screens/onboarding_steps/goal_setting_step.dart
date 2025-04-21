@@ -1,17 +1,75 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Provider to expose the fitness goals data
+final fitnessGoalsProvider =
+    StateNotifierProvider<FitnessGoalsNotifier, FitnessGoalsData>((ref) {
+  return FitnessGoalsNotifier();
+});
+
+// Model to hold fitness goals data
+class FitnessGoalsData {
+  final String? primaryGoal;
+  final int workoutsPerWeek;
+
+  FitnessGoalsData({
+    this.primaryGoal,
+    this.workoutsPerWeek = 3,
+  });
+
+  FitnessGoalsData copyWith({
+    String? primaryGoal,
+    int? workoutsPerWeek,
+  }) {
+    return FitnessGoalsData(
+      primaryGoal: primaryGoal ?? this.primaryGoal,
+      workoutsPerWeek: workoutsPerWeek ?? this.workoutsPerWeek,
+    );
+  }
+}
+
+// Notifier to manage fitness goals state
+class FitnessGoalsNotifier extends StateNotifier<FitnessGoalsData> {
+  FitnessGoalsNotifier() : super(FitnessGoalsData());
+
+  void updatePrimaryGoal(String? goal) {
+    state = state.copyWith(primaryGoal: goal);
+  }
+
+  void updateWorkoutsPerWeek(int count) {
+    state = state.copyWith(workoutsPerWeek: count);
+  }
+}
 
 /// The goal setting step in the onboarding process
-class GoalSettingStep extends StatefulWidget {
+class GoalSettingStep extends ConsumerStatefulWidget {
   /// Constructor
   const GoalSettingStep({super.key});
 
   @override
-  State<GoalSettingStep> createState() => _GoalSettingStepState();
+  ConsumerState<GoalSettingStep> createState() => _GoalSettingStepState();
 }
 
-class _GoalSettingStepState extends State<GoalSettingStep> {
+class _GoalSettingStepState extends ConsumerState<GoalSettingStep> {
   String? _selectedGoal;
   int _workoutsPerWeek = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchExistingGoals();
+  }
+
+  Future<void> _fetchExistingGoals() async {
+    // This would fetch data from Firebase in a real implementation
+  }
+
+  // Update the form state when values change
+  void _updateGoalsState() {
+    final notifier = ref.read(fitnessGoalsProvider.notifier);
+    notifier.updatePrimaryGoal(_selectedGoal);
+    notifier.updateWorkoutsPerWeek(_workoutsPerWeek);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,11 +90,14 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
 
             const SizedBox(height: 8),
 
-            const Text(
+            Text(
               'Tell us what you want to achieve so we can help you get there',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.black54,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
             ),
 
@@ -111,6 +172,7 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
               onChanged: (value) {
                 setState(() {
                   _workoutsPerWeek = value.round();
+                  _updateGoalsState(); // Update when the slider changes
                 });
               },
             ),
@@ -121,7 +183,12 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('1', style: TextStyle(color: Colors.grey)),
+                  Text('1',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6))),
                   Text(
                     '$_workoutsPerWeek days',
                     style: TextStyle(
@@ -129,7 +196,12 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
-                  const Text('7', style: TextStyle(color: Colors.grey)),
+                  Text('7',
+                      style: TextStyle(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.6))),
                 ],
               ),
             ),
@@ -139,10 +211,13 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
             // Suggestion based on selection
             Text(
               _getWorkoutSuggestion(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontStyle: FontStyle.italic,
-                color: Colors.black54,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -161,17 +236,19 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
     final colorScheme = Theme.of(context).colorScheme;
     final primaryColor = colorScheme.primary;
     final surfaceColor = colorScheme.surface;
-    final bgColor = isSelected ? primaryColor.withOpacity(0.05) : surfaceColor;
+    final bgColor =
+        isSelected ? primaryColor.withValues(alpha: 0.05) : surfaceColor;
     final borderColor = isSelected ? primaryColor : Colors.grey.shade300;
     final textColor = isSelected ? primaryColor : colorScheme.onSurface;
     final descColor = isSelected
-        ? primaryColor.withOpacity(0.7)
-        : colorScheme.onSurface.withOpacity(0.6);
+        ? primaryColor.withValues(alpha: 0.7)
+        : colorScheme.onSurface.withValues(alpha: 0.6);
 
     return InkWell(
       onTap: () {
         setState(() {
           _selectedGoal = goal;
+          _updateGoalsState(); // Update when a goal is selected
         });
       },
       child: Container(
@@ -191,8 +268,8 @@ class _GoalSettingStepState extends State<GoalSettingStep> {
               height: 50,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? primaryColor.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
+                    ? primaryColor.withValues(alpha: 0.1)
+                    : Colors.grey.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(

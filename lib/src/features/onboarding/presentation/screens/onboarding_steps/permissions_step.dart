@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import '../../../../../services/permission_service.dart';
 
 /// Step for requesting and explaining necessary app permissions
 class PermissionsStep extends ConsumerStatefulWidget {
@@ -11,10 +14,45 @@ class PermissionsStep extends ConsumerStatefulWidget {
 }
 
 class _PermissionsStepState extends ConsumerState<PermissionsStep> {
+  // Permission states
   bool _notificationsGranted = false;
   bool _healthDataGranted = false;
   bool _cameraGranted = false;
   bool _storageGranted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPermissions();
+  }
+
+  Future<void> _checkPermissions() async {
+    final permissionService = ref.read(permissionServiceProvider);
+
+    // Check notification permission
+    final notificationStatus =
+        await permissionService.checkPermission(Permission.notification);
+
+    // Check camera permission
+    final cameraStatus =
+        await permissionService.checkPermission(Permission.camera);
+
+    // Check storage permission
+    final storageStatus =
+        await permissionService.checkPermission(Permission.storage);
+
+    // For health data, we're using a placeholder since it requires
+    // platform-specific implementations
+    final healthStatus = false;
+
+    // Update state with current permissions
+    setState(() {
+      _notificationsGranted = notificationStatus;
+      _healthDataGranted = healthStatus;
+      _cameraGranted = cameraStatus;
+      _storageGranted = storageStatus;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,11 +73,14 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
 
             const SizedBox(height: 8),
 
-            const Text(
+            Text(
               'FitFlow needs the following permissions to provide you with the best experience',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.black54,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.6),
               ),
             ),
 
@@ -52,7 +93,8 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
               description:
                   'To remind you about workouts, goals, and important updates',
               isGranted: _notificationsGranted,
-              onRequest: () => _requestPermission('notifications'),
+              onRequest: () =>
+                  _requestPermission(Permission.notification, 'notifications'),
             ),
 
             _buildPermissionCard(
@@ -61,7 +103,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
               description:
                   'To access health data like steps, heart rate, and activity',
               isGranted: _healthDataGranted,
-              onRequest: () => _requestPermission('health'),
+              onRequest: () => _showHealthPermissionInfo(),
             ),
 
             _buildPermissionCard(
@@ -70,7 +112,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
               description:
                   'To scan barcodes for nutrition tracking and progress photos',
               isGranted: _cameraGranted,
-              onRequest: () => _requestPermission('camera'),
+              onRequest: () => _requestPermission(Permission.camera, 'camera'),
             ),
 
             _buildPermissionCard(
@@ -78,7 +120,8 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
               icon: Icons.sd_storage,
               description: 'To store workout data offline and export reports',
               isGranted: _storageGranted,
-              onRequest: () => _requestPermission('storage'),
+              onRequest: () =>
+                  _requestPermission(Permission.storage, 'storage'),
             ),
 
             const SizedBox(height: 32),
@@ -87,7 +130,6 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
             Center(
               child: TextButton.icon(
                 onPressed: () {
-                  // Show privacy policy
                   _showPrivacyPolicy();
                 },
                 icon: const Icon(Icons.privacy_tip, size: 18),
@@ -98,12 +140,15 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
             const SizedBox(height: 16),
 
             // Note about privacy
-            const Text(
+            Text(
               'You can change these permissions later in your device settings. '
               'We respect your privacy and only use your data as described in our privacy policy.',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.black45,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.5),
                 fontStyle: FontStyle.italic,
               ),
               textAlign: TextAlign.center,
@@ -133,7 +178,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: Colors.grey.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -148,8 +193,8 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
               height: 50,
               decoration: BoxDecoration(
                 color: isGranted
-                    ? successColor.withOpacity(0.1)
-                    : primaryColor.withOpacity(0.1),
+                    ? successColor.withValues(alpha: 0.1)
+                    : primaryColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -181,7 +226,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
                       color: Theme.of(context)
                           .colorScheme
                           .onSurface
-                          .withOpacity(0.6),
+                          .withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -201,51 +246,73 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
     );
   }
 
-  Future<void> _requestPermission(String permissionType) async {
-    // This is a mock implementation - in a real app, you would request real permissions
-    // Using platform-specific permission handlers
+  Future<void> _requestPermission(
+      Permission permission, String permissionType) async {
+    final permissionService = ref.read(permissionServiceProvider);
+    final granted = await permissionService.requestPermission(permission);
 
-    // Show a confirmation dialog
-    final result = await showDialog<bool>(
+    setState(() {
+      switch (permissionType) {
+        case 'notifications':
+          _notificationsGranted = granted;
+          break;
+        case 'camera':
+          _cameraGranted = granted;
+          break;
+        case 'storage':
+          _storageGranted = granted;
+          break;
+      }
+    });
+
+    // Show message if permission is permanently denied
+    if (!granted) {
+      final status = await permission.status;
+      if (status.isPermanentlyDenied && mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('${permissionType.capitalize()} Permission Required'),
+            content: Text(
+              'To use this feature, you need to enable the $permissionType permission in your device settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  permissionService.openSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showHealthPermissionInfo() async {
+    // Show dialog explaining that health permissions will be requested when needed
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Request ${permissionType.capitalize()} Permission'),
-        content: Text(
-          'This is a demo of requesting the $permissionType permission. '
-          'In a real app, this would trigger the system permission dialog.',
+        title: const Text('Health Data Access'),
+        content: const Text(
+          'Health data access will be requested when you start using features that require it. '
+          'This typically requires integration with Apple Health on iOS or Google Fit on Android.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Deny'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Allow'),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
-
-    // Update the state based on the result
-    if (result == true) {
-      setState(() {
-        switch (permissionType) {
-          case 'notifications':
-            _notificationsGranted = true;
-            break;
-          case 'health':
-            _healthDataGranted = true;
-            break;
-          case 'camera':
-            _cameraGranted = true;
-            break;
-          case 'storage':
-            _storageGranted = true;
-            break;
-        }
-      });
-    }
   }
 
   Future<void> _showPrivacyPolicy() async {
