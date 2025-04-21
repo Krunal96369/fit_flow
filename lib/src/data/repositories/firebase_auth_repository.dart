@@ -311,7 +311,7 @@ class FirebaseAuthRepository implements AuthRepository {
       final storedEmail = await _secureStorage.getSecureData(_emailKey);
       final storedPassword = await _secureStorage.getSecureData(_passwordKey);
 
-      
+  
 
       // If we have a current user and stored credentials don't match the current user,
       // but we have valid stored credentials, update the stored email to match the current user
