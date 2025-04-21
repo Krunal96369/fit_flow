@@ -37,6 +37,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _isLoading = false;
   UnitSystem _unitSystem = UnitSystem.metric;
 
+  // Add this as a class member variable, not inside build
+  bool _fieldsInitialized = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +56,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _initializeFields(UserProfile profile) {
+    // Only initialize these fields if they haven't already been modified by user
+    // This prevents overriding user edits when the screen rebuilds
+    bool shouldUpdateDateAndGender = _dateOfBirth == null && _gender == null;
+
     // Retrieve the current unit system
     final unitSystem = ref.read(unitSystemProvider);
 
@@ -101,9 +108,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _poundsController.text = '';
     }
 
+    // Set gender and date of birth with debug logging, but only if they haven't been modified
+    if (shouldUpdateDateAndGender) {
+      setState(() {
+        _gender = profile.gender;
+        _dateOfBirth = profile.dateOfBirth;
+      });
+    }
+
+    // Always update unit system
     setState(() {
-      _gender = profile.gender;
-      _dateOfBirth = profile.dateOfBirth;
       _unitSystem = unitSystem;
     });
   }
@@ -146,8 +160,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             return const Center(child: Text('Profile not found'));
           }
 
-          // Initialize the fields when profile data is available
-          _initializeFields(profile);
+          // Only initialize fields once on first load
+          if (!_fieldsInitialized) {
+            // Initialize the fields when profile data is available, but only once
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _initializeFields(profile);
+              _fieldsInitialized = true;
+            });
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -273,7 +293,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     items: ['Male', 'Female', 'Other', 'Prefer not to say']
                         .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                         .toList(),
-                    onChanged: (value) => setState(() => _gender = value),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _gender = value);
+                      }
+                    },
                     hint: const Text('Select gender'),
                   ),
                   const SizedBox(height: 16),
@@ -543,20 +567,40 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
   }
 
+  // Date of birth selection with improved state management
   Future<void> _selectDateOfBirth() async {
     final DateTime today = DateTime.now();
     final DateTime initialDate =
         _dateOfBirth ?? today.subtract(const Duration(days: 365 * 30));
 
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(1900),
-      lastDate: today,
-    );
+    try {
+      final date = await showDatePicker(
+        context: context,
+        initialDate: initialDate,
+        firstDate: DateTime(1900),
+        lastDate: today,
+      );
 
-    if (date != null) {
-      setState(() => _dateOfBirth = date);
+      // If date was selected (not canceled)
+      if (date != null) {
+        // Update the state with the selected date
+        if (mounted) {
+          setState(() {
+            _dateOfBirth = date;
+          });
+
+          // Double-check that our state wasn't overridden by a rebuild
+          if (_dateOfBirth != date) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              setState(() {
+                _dateOfBirth = date;
+              });
+            });
+          }
+        }
+      }
+    } catch (e) {
+      // Silent error handling
     }
   }
 
@@ -613,6 +657,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         }
       }
 
+      // Create a local copy of the values to ensure they don't change during async operations
+      final DateTime? dateOfBirthToSave = _dateOfBirth;
+      final String? genderToSave = _gender;
+
       await ref.read(profileControllerProvider).updateUserProfile(
             userId: profileAsync.id,
             displayName: _displayNameController.text,
@@ -624,8 +672,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 : _lastNameController.text,
             height: heightInCm,
             weight: weightInKg,
-            dateOfBirth: _dateOfBirth,
-            gender: _gender,
+            dateOfBirth: dateOfBirthToSave,
+            gender: genderToSave,
           );
 
       if (mounted) {

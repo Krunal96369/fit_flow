@@ -132,8 +132,10 @@ class UserProfile {
       'lastName': lastName,
       'height': height,
       'weight': weight,
+      // Always include dateOfBirth field even if null to ensure it overwrites existing values
       'dateOfBirth':
           dateOfBirth != null ? Timestamp.fromDate(dateOfBirth!) : null,
+      // Always include gender field even if null to ensure it overwrites existing values
       'gender': gender,
       'updatedAt': lastUpdated != null
           ? Timestamp.fromDate(lastUpdated!)
