@@ -151,6 +151,13 @@ class ProfileScreen extends ConsumerWidget {
                     context.push('/settings/accessibility');
                   },
                 ),
+                _SettingItem(
+                  icon: Icons.security,
+                  title: 'App Permissions',
+                  onTap: () {
+                    context.push('/settings/permissions');
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -237,10 +244,7 @@ class ProfileScreen extends ConsumerWidget {
             onPressed: () {
               // Close dialog
               Navigator.of(context).pop();
-              // Show confirmation
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Account deletion - Coming soon')),
-              );
+              context.push('/delete-account');
             },
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.error,

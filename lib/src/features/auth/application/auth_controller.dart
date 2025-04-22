@@ -109,6 +109,17 @@ class AuthController {
     return _biometricService.getAvailableBiometrics();
   }
 
+  /// Store user credentials securely without enabling biometric authentication
+  Future<bool> storeCredentials({
+    required String email,
+    required String password,
+  }) async {
+    return (_authRepository as FirebaseAuthRepository).storeCredentials(
+      email: email,
+      password: password,
+    );
+  }
+
   Future<bool> enableBiometricAuth({
     required String email,
     required String password,
@@ -140,5 +151,11 @@ class AuthController {
   /// Sign in with biometric authentication
   Future<bool> signInWithBiometrics() async {
     return _authRepository.signInWithBiometrics();
+  }
+
+  /// Delete the current user account and all associated data
+  /// Requires password for re-authentication
+  Future<bool> deleteAccount(String password) async {
+    return _authRepository.deleteAccount(password);
   }
 }

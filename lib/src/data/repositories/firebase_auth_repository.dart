@@ -158,6 +158,33 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
+  /// Store user credentials securely without enabling biometrics
+  @override
+  Future<bool> storeCredentials({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      debugPrint('storeCredentials: Storing email: $email');
+
+      // Store the credentials securely
+      final emailSaved = await _secureStorage.setSecureData(
+        _emailKey,
+        email,
+      );
+
+      final passwordSaved = await _secureStorage.setSecureData(
+        _passwordKey,
+        password,
+      );
+
+      return emailSaved && passwordSaved;
+    } catch (e) {
+      debugPrint('Error storing credentials: $e');
+      return false;
+    }
+  }
+
   @override
   Future<bool> enableBiometricAuth(SignInCredentials credentials) async {
     try {
@@ -176,96 +203,68 @@ class FirebaseAuthRepository implements AuthRepository {
       String email;
       String password;
 
-      if (currentUser != null &&
-          credentials.email.isEmpty &&
-          credentials.password.isEmpty) {
-        debugPrint('enableBiometricAuth: Using current user credentials');
-        // User is already logged in and we're enabling biometrics from settings
-        // without re-entering credentials - use stored credentials
+      // If credentials are empty, try to use stored credentials for the current user
+      if (credentials.email.isEmpty && credentials.password.isEmpty) {
+        debugPrint('enableBiometricAuth: Trying to use stored credentials');
+
+        if (currentUser == null) {
+          debugPrint('Cannot enable biometrics: no logged in user');
+          return false;
+        }
+
         email = currentUser.email ?? '';
-
-        // Check if we already have a stored password for this user
-        final storedPassword = await _secureStorage.getSecureData(_passwordKey);
-
         if (email.isEmpty) {
           debugPrint('Cannot enable biometrics: user has no email');
           return false;
         }
 
-        if (storedPassword == null) {
-          debugPrint('Cannot enable biometrics: no stored password for user');
+        // Check if we already have stored credentials
+        final storedEmail = await _secureStorage.getSecureData(_emailKey);
+        final storedPassword = await _secureStorage.getSecureData(_passwordKey);
+
+        if (storedEmail == null || storedPassword == null) {
+          debugPrint('Cannot enable biometrics: no stored credentials');
           return false;
         }
 
+        // Use the stored credentials
         password = storedPassword;
         debugPrint(
-            'enableBiometricAuth: Using stored password for current user: $email');
-
-        // Use the stored credentials without verification since user is already logged in
+            'enableBiometricAuth: Using stored credentials for current user');
       } else {
-        // User provided specific credentials to use
+        // Use the provided credentials
         email = credentials.email;
         password = credentials.password;
-        debugPrint(
-            'enableBiometricAuth: Using provided credentials for: $email');
 
-        // Only try to verify if user is not already logged in with these credentials
+        // Verify the credentials if user is not already logged in with these credentials
         if (currentUser == null || currentUser.email != email) {
           try {
-            debugPrint(
-                'enableBiometricAuth: Verifying credentials before storing');
-            // Verify the credentials before storing
+            debugPrint('enableBiometricAuth: Verifying provided credentials');
             await _firebaseAuth.signInWithEmailAndPassword(
               email: email,
               password: password,
             );
-            debugPrint(
-                'enableBiometricAuth: Credentials verified successfully');
           } catch (e) {
             debugPrint('Failed to verify credentials: $e');
             return false;
           }
-        } else {
-          debugPrint(
-              'enableBiometricAuth: Skipping verification as user is already logged in');
         }
+
+        // Store the credentials if not already stored
+        await storeCredentials(email: email, password: password);
       }
 
-      // Store the credentials securely
-      debugPrint('enableBiometricAuth: Storing email: $email');
-      final emailSaved = await _secureStorage.setSecureData(
-        _emailKey,
-        email,
-      );
-      debugPrint('enableBiometricAuth: Email saved: $emailSaved');
+      // Set the biometrics enabled flag
+      debugPrint('enableBiometricAuth: Setting biometrics enabled flag');
+      final flagSaved =
+          await _secureStorage.setSecureData(_biometricEnabledKey, 'true');
 
-      debugPrint('enableBiometricAuth: Storing password');
-      final passwordSaved = await _secureStorage.setSecureData(
-        _passwordKey,
-        password,
-      );
-      debugPrint('enableBiometricAuth: Password saved: $passwordSaved');
-
-      // Mark biometrics as enabled
-      if (emailSaved && passwordSaved) {
-        debugPrint('enableBiometricAuth: Setting biometrics enabled flag');
-        final flagSaved =
-            await _secureStorage.setSecureData(_biometricEnabledKey, 'true');
-        debugPrint('enableBiometricAuth: Flag saved: $flagSaved');
-
+      if (flagSaved) {
         await _biometricService.setBiometricsEnabled(true);
         debugPrint('Biometric authentication enabled successfully');
-
-        // Let's test storage immediately to make sure we can retrieve what we just stored
-        final test = await hasStoredCredentials();
-        debugPrint('enableBiometricAuth: Immediate verification check: $test');
-
         return true;
       } else {
-        // If either save failed, clean up
-        debugPrint('Failed to save credentials securely');
-        await _secureStorage.deleteSecureData(_emailKey);
-        await _secureStorage.deleteSecureData(_passwordKey);
+        debugPrint('Failed to save biometrics enabled flag');
         return false;
       }
     } catch (e) {
@@ -310,8 +309,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
       final storedEmail = await _secureStorage.getSecureData(_emailKey);
       final storedPassword = await _secureStorage.getSecureData(_passwordKey);
-
-  
 
       // If we have a current user and stored credentials don't match the current user,
       // but we have valid stored credentials, update the stored email to match the current user
@@ -372,6 +369,129 @@ class FirebaseAuthRepository implements AuthRepository {
       debugPrint('Error during biometric sign in: $e');
       return false;
     }
+  }
+
+  @override
+  Future<bool> deleteAccount(String password) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        debugPrint('Cannot delete account: No authenticated user');
+        return false;
+      }
+
+      final email = user.email;
+      if (email == null) {
+        debugPrint('Cannot delete account: User has no email');
+        return false;
+      }
+
+      final userId = user.uid;
+
+      // Re-authenticate the user for security
+      debugPrint('Re-authenticating user before account deletion');
+      final credentials = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+
+      await user.reauthenticateWithCredential(credentials);
+
+      // Delete user data from Firestore
+      debugPrint('Deleting user data from Firestore');
+      await _deleteUserData(userId);
+
+      // Delete any stored biometric credentials
+      debugPrint('Deleting stored biometric credentials');
+      await disableBiometricAuth();
+
+      // Delete the user account from Firebase Auth
+      debugPrint('Deleting user account');
+      await user.delete();
+
+      debugPrint('Account successfully deleted');
+      return true;
+    } on FirebaseAuthException catch (e) {
+      debugPrint('FirebaseAuthException during account deletion: ${e.code}');
+      if (e.code == 'requires-recent-login') {
+        debugPrint('User needs to re-authenticate before deletion');
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error deleting account: $e');
+      return false;
+    }
+  }
+
+  /// Deletes all user data from Firestore
+  Future<void> _deleteUserData(String userId) async {
+    try {
+      // Delete user profile
+      final userProfileRef = _firestore.collection('user_profiles').doc(userId);
+      await userProfileRef.delete();
+
+      // Get user document reference
+      final userDocRef = _firestore.collection('users').doc(userId);
+
+      // Delete user's nutrition entries
+      final entriesCollection = userDocRef.collection('nutrition_entries');
+      await _deleteCollection(entriesCollection);
+
+      // Delete user's nutrition goals
+      final goalsCollection = userDocRef.collection('nutrition_goals');
+      await _deleteCollection(goalsCollection);
+
+      // Delete user's workout data
+      final workoutsCollection = userDocRef.collection('workouts');
+      await _deleteCollection(workoutsCollection);
+
+      // Delete user's food favorites and recent foods
+      final favoritesCollection = userDocRef.collection('food_favorites');
+      await _deleteCollection(favoritesCollection);
+
+      final recentFoodsCollection = userDocRef.collection('recent_foods');
+      await _deleteCollection(recentFoodsCollection);
+
+      // Finally delete the main user document
+      await userDocRef.delete();
+
+      debugPrint('All user data deleted from Firestore');
+    } catch (e) {
+      debugPrint('Error deleting user data: $e');
+      // Don't rethrow to ensure account deletion completes even if data deletion fails
+    }
+  }
+
+  /// Helper method to delete a collection
+  Future<void> _deleteCollection(CollectionReference collection) async {
+    final batchSize = 100;
+    var query = collection.limit(batchSize);
+
+    var deleted = 0;
+
+    while (true) {
+      final snapshot = await query.get();
+      final size = snapshot.size;
+
+      if (size == 0) {
+        break;
+      }
+
+      // Delete documents in a batch
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      deleted += size;
+
+      if (size < batchSize) {
+        break;
+      }
+    }
+
+    debugPrint('Deleted $deleted documents from collection ${collection.path}');
   }
 
   /// Creates a user document in Firestore with default values

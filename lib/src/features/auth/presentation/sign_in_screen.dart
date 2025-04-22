@@ -114,11 +114,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
             password: password,
           );
 
-      // Save credentials for later biometric use without enabling biometrics yet
+      // Save credentials for later biometric use without enabling biometrics
       final authController = ref.read(authControllerProvider);
 
-      // Store the credentials but don't enable biometrics yet
-      await authController.enableBiometricAuth(
+      // Store the credentials securely but don't enable biometrics yet
+      // This will make them available when the user chooses to enable biometrics in settings
+      await authController.storeCredentials(
         email: email,
         password: password,
       );
@@ -126,18 +127,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen>
       // Check if biometrics are already enabled to show the biometric login option
       final isBiometricsAvailable =
           await authController.isBiometricsAvailable();
+      final isBiometricAuthEnabled =
+          await authController.isBiometricAuthEnabled();
 
-      if (isBiometricsAvailable) {
-        // Check if biometrics are already enabled
-        final isBiometricAuthEnabled =
-            await authController.isBiometricAuthEnabled();
-        if (isBiometricAuthEnabled) {
-          // Update UI to show biometric option
-          if (mounted) {
-            setState(() {
-              _isBiometricsAvailable = true;
-            });
-          }
+      if (isBiometricsAvailable && isBiometricAuthEnabled) {
+        // Update UI to show biometric option on next login
+        if (mounted) {
+          setState(() {
+            _isBiometricsAvailable = true;
+          });
         }
       }
 
