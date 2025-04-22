@@ -33,14 +33,14 @@ class ErrorServiceImpl implements ErrorService {
     Object? exception,
     StackTrace? stackTrace,
   }) {
-    // For development, print to console
+    // For development, debugPrint to console
     if (kDebugMode) {
-      print('ERROR [${type.name}]: $message');
+      debugPrint('ERROR [${type.name}]: $message');
       if (exception != null) {
-        print('Exception: $exception');
+        debugPrint('Exception: $exception');
       }
       if (stackTrace != null) {
-        print('Stack trace: $stackTrace');
+        debugPrint('Stack trace: $stackTrace');
       }
     }
 

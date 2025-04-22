@@ -57,8 +57,12 @@ class _SecuritySettingsScreenState
         setState(() {
           _isLoading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading settings: ${e.toString()}')),
+        showDialog(
+          context: context,
+          builder: (errorContext) => ErrorDialog(
+            errorType: ErrorType.authentication,
+            technicalMessage: e.toString(),
+          ),
         );
       }
     }
@@ -125,19 +129,28 @@ class _SecuritySettingsScreenState
           return;
         }
 
-        // Try to enable biometrics with stored credentials
-        final success =
-            await authController.enableBiometricAuthForCurrentUser();
+        // Check if credentials are already stored
+        final hasStoredCredentials =
+            await authController.hasStoredCredentials();
 
-        if (success) {
-          setState(() {
-            _isBiometricsEnabled = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Biometric authentication enabled')),
-          );
+        if (hasStoredCredentials) {
+          // If we already have credentials stored, use them to enable biometrics
+          final success =
+              await authController.enableBiometricAuthForCurrentUser();
+
+          if (success) {
+            setState(() {
+              _isBiometricsEnabled = true;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Biometric authentication enabled')),
+            );
+          } else {
+            // If enabling fails, show dialog to collect credentials
+            await _showBiometricEnableDialog();
+          }
         } else {
-          // If the automatic method fails, show dialog to collect credentials
+          // No stored credentials, show dialog to collect them
           await _showBiometricEnableDialog();
         }
 
@@ -344,16 +357,40 @@ class _SecuritySettingsScreenState
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => context.push('/change-password'),
                       ),
+                      const Divider(),
+                      ListTile(
+                        title: const Text('Delete Account'),
+                        subtitle: const Text(
+                            'Permanently delete your account and all data'),
+                        leading:
+                            const Icon(Icons.delete_forever, color: Colors.red),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push('/delete-account'),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Biometric Authentication',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Row(
+                  children: [
+                    const Text(
+                      'Biometric Authentication',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_hasStoredCredentials && !_isBiometricsEnabled)
+                      Tooltip(
+                        message: 'Your credentials are securely stored',
+                        child: Icon(
+                          Icons.info_outline,
+                          size: 18,
+                          color: Colors.blue,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 Card(
@@ -394,7 +431,7 @@ class _SecuritySettingsScreenState
                             vertical: 8,
                           ),
                           child: Text(
-                            'Enable biometric authentication to sign in without entering your email and password.',
+                            'Your credentials are securely stored. You can enable biometric authentication to sign in quickly.',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,

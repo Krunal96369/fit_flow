@@ -55,7 +55,7 @@ class AppBottomNavigation extends StatelessWidget {
         context.go('/dashboard');
         break;
       case 1:
-        context.go('/workouts/new');
+        context.go('/workouts');
         break;
       case 2:
         context.go('/nutrition');

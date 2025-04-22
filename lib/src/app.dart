@@ -1,8 +1,9 @@
-import 'package:dynamic_color/dynamic_color.dart'; // Added for Material You
+import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'routing/app_router.dart';
+import 'services/theme/custom_colors.dart';
 import 'services/theme/theme_service.dart';
 
 class FitFlowApp extends ConsumerWidget {
@@ -10,10 +11,7 @@ class FitFlowApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Get the router from the provider
     final router = ref.watch(goRouterProvider);
-
-    // Get the current theme mode from the theme provider
     final themeMode = ref.watch(themeModeProvider);
 
     return DynamicColorBuilder(
@@ -32,13 +30,23 @@ class FitFlowApp extends ConsumerWidget {
             );
 
         return MaterialApp.router(
+          debugShowCheckedModeBanner: false,
           title: 'FitFlow',
-          theme: ThemeData(colorScheme: lightColorScheme, useMaterial3: true),
-          darkTheme: ThemeData(
-            colorScheme: darkColorScheme,
+          theme: ThemeData(
             useMaterial3: true,
+            colorScheme: lightColorScheme,
+            extensions: [
+              CustomColors.light(),
+            ],
           ),
-          themeMode: themeMode, // Use the theme mode from the provider
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: darkColorScheme,
+            extensions: [
+              CustomColors.dark(),
+            ],
+          ),
+          themeMode: themeMode,
           routerConfig: router,
         );
       },

@@ -15,7 +15,11 @@ import '../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../features/profile/presentation/edit_profile_screen.dart';
 import '../features/profile/presentation/nutrition_goals_screen.dart';
 import '../features/profile/presentation/profile_screen.dart';
+import '../features/settings/presentation/delete_account_screen.dart';
+import '../features/settings/presentation/permissions_settings_screen.dart';
 import '../features/settings/presentation/security_settings_screen.dart';
+import '../features/workouts/workout_router.dart';
+import '../screens/accessibility_demo_screen.dart';
 
 // Placeholder screens for routes we haven't implemented yet
 class PlaceholderScreen extends StatelessWidget {
@@ -148,18 +152,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ...nutritionRoutes,
 
       // Workout routes
-      GoRoute(
-        path: '/workouts/new',
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'New Workout'),
-      ),
-      GoRoute(
-        path: '/workouts/:id',
-        builder: (context, state) {
-          final workoutId = state.pathParameters['id']!;
-          return PlaceholderScreen(title: 'Workout: $workoutId');
-        },
-      ),
+      ...workoutRoutes,
 
       // Profile & Settings routes
       GoRoute(
@@ -181,12 +174,19 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/settings/accessibility',
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Accessibility'),
+        builder: (context, state) => const AccessibilityDemoScreen(),
+      ),
+      GoRoute(
+        path: '/settings/permissions',
+        builder: (context, state) => const PermissionsSettingsScreen(),
       ),
       GoRoute(
         path: '/settings/security',
         builder: (context, state) => const SecuritySettingsScreen(),
+      ),
+      GoRoute(
+        path: '/delete-account',
+        builder: (context, state) => const DeleteAccountScreen(),
       ),
       GoRoute(
         path: '/export',

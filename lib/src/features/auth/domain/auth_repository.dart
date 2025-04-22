@@ -45,7 +45,19 @@ abstract class AuthRepository {
   /// Check if biometric authentication is enabled for the current user
   Future<bool> isBiometricAuthEnabled();
 
+  /// Stores user credentials securely without enabling biometric authentication
+  /// Returns true if credentials were stored successfully, false otherwise
+  Future<bool> storeCredentials({
+    required String email,
+    required String password,
+  });
+
   /// Authenticates the user using device biometrics
   /// Returns true if authentication was successful, false otherwise
   Future<bool> signInWithBiometrics();
+
+  /// Deletes the current user account and all associated data
+  /// Requires re-authentication with password for security
+  /// Returns true if deletion was successful, false otherwise
+  Future<bool> deleteAccount(String password);
 }
