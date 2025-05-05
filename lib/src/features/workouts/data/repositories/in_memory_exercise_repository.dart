@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import '../../domain/models/difficulty.dart';
 import '../../domain/models/equipment.dart';
 import '../../domain/models/exercise.dart';
@@ -298,7 +300,7 @@ class InMemoryExerciseRepository implements ExerciseRepository {
               (exercise.secondaryMuscles?.contains(muscle) ?? false))
           .toList();
     } catch (e) {
-      print('Error in getExercisesByMuscle: $e');
+      debugPrint('Error in getExercisesByMuscle: $e');
       return [];
     }
   }

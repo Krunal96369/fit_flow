@@ -1,55 +1,49 @@
 import 'package:collection/collection.dart';
-import 'package:meta/meta.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import Firestore
 
 import 'workout_set.dart'; // Use relative import
 
-/// Represents a single logged workout session.
-@immutable
-class WorkoutSession {
-  const WorkoutSession({
-    required this.id,
-    required this.userId, // To associate with a user
-    required this.startTime,
-    this.endTime,
-    required this.performedExercises, // Map: Exercise ID -> List of Sets
-    this.notes,
-  });
+part 'workout_session.freezed.dart';
+part 'workout_session.g.dart';
 
-  final String id;
-  final String userId;
-  final DateTime startTime;
-  final DateTime? endTime; // Null if the workout is ongoing
-  final Map<String, List<WorkoutSet>> performedExercises;
-  final String? notes;
+// --- Timestamp Converters ---
+// Converts Firestore Timestamp to DateTime
+DateTime timestampFromJson(Timestamp timestamp) => timestamp.toDate();
+// Converts DateTime to Firestore Timestamp
+Timestamp timestampToJson(DateTime date) => Timestamp.fromDate(date);
+// Handles nullable DateTime <-> Timestamp conversion
+DateTime? nullableTimestampFromJson(Timestamp? timestamp) => timestamp?.toDate();
+Timestamp? nullableTimestampToJson(DateTime? date) =>
+    date == null ? null : Timestamp.fromDate(date);
+// --- End Timestamp Converters ---
+
+/// Represents a single logged workout session.
+@freezed
+class WorkoutSession with _$WorkoutSession {
+  // Ensure WorkoutSet also has fromJson/toJson for this to work correctly
+  @JsonSerializable(explicitToJson: true) // Ensure nested objects are serialized
+  const factory WorkoutSession({
+    required String id,
+    required String userId, // To associate with a user
+    // Apply converters to startTime
+    @JsonKey(fromJson: timestampFromJson, toJson: timestampToJson)
+    required DateTime startTime,
+    // Apply converters to nullable endTime
+    @JsonKey(fromJson: nullableTimestampFromJson, toJson: nullableTimestampToJson)
+    DateTime? endTime, // Null if the workout is ongoing
+    // Map keys must be Strings for JSON. Assumes Exercise ID is String.
+    required Map<String, List<WorkoutSet>> performedExercises,
+    String? notes,
+  }) = _WorkoutSession;
+
+  // Private constructor for Freezed
+  const WorkoutSession._();
 
   // Calculate duration if endTime is set
   Duration? get duration => endTime?.difference(startTime);
 
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is WorkoutSession &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          userId == other.userId &&
-          startTime == other.startTime &&
-          endTime == other.endTime &&
-          // Deep map equality check
-          const MapEquality()
-              .equals(performedExercises, other.performedExercises);
-
-  @override
-  int get hashCode =>
-      id.hashCode ^
-      userId.hashCode ^
-      startTime.hashCode ^
-      endTime.hashCode ^
-      const MapEquality().hash(performedExercises);
-
-  @override
-  String toString() {
-    return 'WorkoutSession{id: $id, userId: $userId, startTime: $startTime, endTime: $endTime}';
-  }
-
-  // Add fromJson/toJson later
+  // Factory constructor for creating a new WorkoutSession instance from a map
+  factory WorkoutSession.fromJson(Map<String, dynamic> json) =>
+      _$WorkoutSessionFromJson(json);
 }

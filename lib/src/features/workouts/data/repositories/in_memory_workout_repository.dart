@@ -6,7 +6,7 @@ import '../../domain/repositories/workout_repository.dart';
 /// Simulates data storage with a simple in-memory Map.
 class InMemoryWorkoutRepository implements WorkoutRepository {
   // In-memory storage for workout sessions
-  final Map<String, WorkoutSession> _workouts = {};
+  final Map<String, Map<String, WorkoutSession>> _workouts = {};
 
   // Simulate network delay
   final Duration _delay = const Duration(milliseconds: 300);
@@ -14,13 +14,19 @@ class InMemoryWorkoutRepository implements WorkoutRepository {
   @override
   Future<void> deleteWorkout(String workoutId) async {
     await Future.delayed(_delay);
-    _workouts.remove(workoutId);
+    _workouts.values.forEach((userWorkouts) => userWorkouts.remove(workoutId));
   }
 
   @override
   Future<WorkoutSession?> getWorkoutById(String workoutId) async {
     await Future.delayed(_delay);
-    return _workouts[workoutId];
+    // Find workout across all users (simplification for in-memory)
+    for (final userWorkouts in _workouts.values) {
+      if (userWorkouts.containsKey(workoutId)) {
+        return userWorkouts[workoutId];
+      }
+    }
+    return null;
   }
 
   @override
@@ -31,12 +37,12 @@ class InMemoryWorkoutRepository implements WorkoutRepository {
     final startOfDay = DateTime(date.year, date.month, date.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    return _workouts.values
+    return _workouts[userId]?.values
         .where((workout) =>
-            workout.userId == userId &&
             workout.startTime.isAfter(startOfDay) &&
             workout.startTime.isBefore(endOfDay))
-        .toList();
+        .toList() ??
+        [];
   }
 
   @override
@@ -44,12 +50,12 @@ class InMemoryWorkoutRepository implements WorkoutRepository {
       String userId, DateTime startDate, DateTime endDate) async {
     await Future.delayed(_delay);
 
-    return _workouts.values
+    return _workouts[userId]?.values
         .where((workout) =>
-            workout.userId == userId &&
             workout.startTime.isAfter(startDate) &&
             workout.startTime.isBefore(endDate.add(const Duration(days: 1))))
-        .toList();
+        .toList() ??
+        [];
   }
 
   @override
@@ -57,19 +63,19 @@ class InMemoryWorkoutRepository implements WorkoutRepository {
       {int limit = 10}) async {
     await Future.delayed(_delay);
 
-    final results =
-        _workouts.values.where((workout) => workout.userId == userId).toList()
-          // Sort by most recent first
-          ..sort((a, b) => b.startTime.compareTo(a.startTime));
+    final results = _workouts[userId]?.values.toList() ?? []
+      // Sort by most recent first
+      ..sort((a, b) => b.startTime.compareTo(a.startTime));
 
     // Limit to requested number
     return results.take(limit).toList();
   }
 
   @override
-  Future<WorkoutSession> saveWorkout(WorkoutSession workout) async {
-    await Future.delayed(_delay);
-    _workouts[workout.id] = workout;
-    return workout;
+  Future<WorkoutSession> saveWorkoutSession(WorkoutSession workout) async {
+    // Simulate saving
+    _workouts.putIfAbsent(workout.userId, () => {});
+    _workouts[workout.userId]![workout.id] = workout;
+    return workout; // Return the saved workout
   }
 }

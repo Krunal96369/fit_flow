@@ -21,9 +21,9 @@ class AccessibilityUtils {
   static double calculateRelativeLuminance(Color color) {
     // Convert RGB to sRGB
     final List<double> sRGB = [
-      color.red / 255.0,
-      color.green / 255.0,
-      color.blue / 255.0
+      color.r / 255.0,
+      color.g / 255.0,
+      color.b / 255.0
     ];
 
     // Convert sRGB to linear RGB values
@@ -150,20 +150,17 @@ class AccessibilityUtils {
         // Lighten the color
         adjustedColor = Color.fromARGB(
           adjustedColor.alpha,
-          min(255, adjustedColor.red + (255 - adjustedColor.red) * step)
-              .round(),
-          min(255, adjustedColor.green + (255 - adjustedColor.green) * step)
-              .round(),
-          min(255, adjustedColor.blue + (255 - adjustedColor.blue) * step)
-              .round(),
+          min(255, adjustedColor.r + (255 - adjustedColor.r) * step).round(),
+          min(255, adjustedColor.g + (255 - adjustedColor.g) * step).round(),
+          min(255, adjustedColor.b + (255 - adjustedColor.b) * step).round(),
         );
       } else {
         // Darken the color
         adjustedColor = Color.fromARGB(
           adjustedColor.alpha,
-          max(0, adjustedColor.red - adjustedColor.red * step).round(),
-          max(0, adjustedColor.green - adjustedColor.green * step).round(),
-          max(0, adjustedColor.blue - adjustedColor.blue * step).round(),
+          max(0, adjustedColor.r - adjustedColor.r * step).round(),
+          max(0, adjustedColor.g - adjustedColor.g * step).round(),
+          max(0, adjustedColor.b - adjustedColor.b * step).round(),
         );
       }
 

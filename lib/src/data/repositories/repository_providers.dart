@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -106,6 +107,27 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     biometricService: ref.watch(biometricServiceProvider),
     secureStorage: ref.watch(secureStorageProvider),
   );
+});
+
+/// Provides the stream of Firebase Auth state changes.
+/// Emits the current User? object when the auth state changes.
+final authStateChangesProvider = StreamProvider<User?>((ref) {
+  final authRepository = ref.watch(authRepositoryProvider);
+  return authRepository.authStateChanges();
+});
+
+/// Provides the UID of the currently authenticated user.
+/// Returns null if the user is not logged in.
+final currentUserIdProvider = Provider<String?>((ref) {
+  // Watch the auth state stream
+  debugPrint('--- Reading currentUserIdProvider ---'); // Log when read
+  final authState = ref.watch(authStateChangesProvider);
+  // Return the user's UID if logged in, otherwise null
+  final user = authState.value; // Get the User? object
+  // Log the user object and its UID
+  debugPrint('--- currentUserIdProvider: authState.value = $user ---');
+  debugPrint('--- currentUserIdProvider: returning uid = ${user?.uid} ---');
+  return user?.uid;
 });
 
 final nutritionRepositoryProvider = Provider<NutritionRepository>((ref) {

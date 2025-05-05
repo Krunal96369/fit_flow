@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'domain/models/exercise.dart';
 import 'domain/models/muscle.dart';
 import 'presentation/screens/add_exercise_screen.dart';
 import 'presentation/screens/exercise_detail_screen.dart';
 import 'presentation/screens/exercise_library_screen.dart';
 import 'presentation/screens/log_workout_screen.dart';
 import 'presentation/screens/muscle_exercises_screen.dart';
-import 'presentation/workouts_screen.dart';
+import 'presentation/screens/workout_dashboard_screen.dart';
+import 'presentation/screens/workout_detail_screen.dart';
 
 /// Router configuration for workout feature
 final workoutRoutes = [
   GoRoute(
     path: '/workouts',
     name: 'workouts',
-    builder: (context, state) => const WorkoutsScreen(),
+    builder: (context, state) => const WorkoutDashboardScreen(),
     routes: [
       GoRoute(
         path: 'exercises',
         name: 'exercise-library',
-        builder: (context, state) => const ExerciseLibraryScreen(),
+        builder: (context, state) {
+          final isSelecting = (state.extra as Map<String, dynamic>?)?['isSelecting'] as bool? ?? false;
+          return ExerciseLibraryScreen(isSelecting: isSelecting);
+        },
       ),
       GoRoute(
         path: 'exercises/add',
@@ -60,6 +65,15 @@ final workoutRoutes = [
             date: date,
             preSelectedExerciseId: exerciseId,
           );
+        },
+      ),
+      // Route for Workout Details
+      GoRoute(
+        path: 'details/:workoutId',
+        name: 'workout-details',
+        builder: (context, state) {
+          final workoutId = state.pathParameters['workoutId'] ?? '';
+          return WorkoutDetailScreen(workoutId: workoutId);
         },
       ),
     ],
@@ -106,5 +120,22 @@ extension WorkoutRouterExtension on BuildContext {
     final muscleId = muscle.toString().split('.').last;
     GoRouter.of(this)
         .goNamed('muscle-exercises', pathParameters: {'muscleId': muscleId});
+  }
+
+  /// Navigate to the exercise library to select an exercise and return it
+  Future<Exercise?> pushExerciseLibraryForSelection() {
+    // Use pushNamed to be able to receive a result
+    return GoRouter.of(this).pushNamed<Exercise>(
+      'exercise-library',
+      extra: {'isSelecting': true}, // Pass flag via extra
+    );
+  }
+
+  /// Navigate to workout details screen
+  void pushWorkoutDetails(String workoutId) {
+    GoRouter.of(this).pushNamed(
+      'workout-details',
+      pathParameters: {'workoutId': workoutId},
+    );
   }
 }

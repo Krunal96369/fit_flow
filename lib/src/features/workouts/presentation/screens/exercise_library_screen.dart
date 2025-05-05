@@ -7,10 +7,15 @@ import '../../domain/models/exercise.dart';
 import '../../domain/models/movement_pattern.dart';
 import '../../domain/models/muscle.dart';
 import '../../providers/exercise_providers.dart';
+import '../../workout_router.dart';
+import '../widgets/exercise_card.dart';
 
 /// Screen that displays a searchable and filterable library of exercises
 class ExerciseLibraryScreen extends ConsumerStatefulWidget {
-  const ExerciseLibraryScreen({super.key});
+  final bool isSelecting;
+
+  // Constructor accepting the isSelecting parameter
+  const ExerciseLibraryScreen({super.key, required this.isSelecting});
 
   @override
   ConsumerState<ExerciseLibraryScreen> createState() =>
@@ -175,7 +180,15 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
                 final exercise = filteredExercises[index];
                 return ExerciseCard(
                   exercise: exercise,
-                  onTap: () => _navigateToExerciseDetails(exercise),
+                  onTap: () {
+                    if (widget.isSelecting) {
+                      // Return selected exercise if in selection mode
+                      Navigator.of(context).pop(exercise);
+                    } else {
+                      // Default behavior: navigate to details
+                      _navigateToExerciseDetails(exercise);
+                    }
+                  },
                   onFavoriteTap: () => _toggleFavorite(exercise),
                 );
               },
@@ -469,14 +482,7 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   }
 
   void _navigateToExerciseDetails(Exercise exercise) {
-    // Navigate to exercise details screen
-    // In a real app, this would use a navigation service
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Viewing details for ${exercise.name}'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    context.goToExerciseDetails(exercise.id);
   }
 
   void _toggleFavorite(Exercise exercise) {
@@ -488,120 +494,6 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
       toggleFavoriteControllerProvider((exerciseId, isFavorite)),
     );
     toggleFavorite();
-  }
-
-  String _getDifficultyText(Difficulty difficulty) {
-    switch (difficulty) {
-      case Difficulty.beginner:
-        return 'Beginner';
-      case Difficulty.intermediate:
-        return 'Intermediate';
-      case Difficulty.advanced:
-        return 'Advanced';
-    }
-  }
-}
-
-/// A simple card to display basic exercise information in the list
-class ExerciseCard extends StatelessWidget {
-  final Exercise exercise;
-  final VoidCallback onTap;
-  final VoidCallback onFavoriteTap;
-
-  const ExerciseCard({
-    super.key,
-    required this.exercise,
-    required this.onTap,
-    required this.onFavoriteTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Exercise image if available
-            if (exercise.imageUrl != null)
-              Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(12)),
-                  image: DecorationImage(
-                    image: AssetImage(exercise.imageUrl!),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          exercise.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          exercise.isFavorite == true
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: exercise.isFavorite == true
-                              ? Colors.red
-                              : Colors.grey,
-                        ),
-                        onPressed: onFavoriteTap,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Primary Muscle: ${exercise.primaryMuscle.displayName}',
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                  if (exercise.difficulty != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Difficulty: ${_getDifficultyText(exercise.difficulty!)}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  if (exercise.description != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        exercise.description!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String _getDifficultyText(Difficulty difficulty) {

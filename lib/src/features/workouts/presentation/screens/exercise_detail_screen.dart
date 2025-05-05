@@ -41,6 +41,19 @@ class ExerciseDetailScreen extends ConsumerWidget {
       BuildContext context, Exercise exercise, WidgetRef ref) {
     final isFavorite = exercise.isFavorite ?? false;
 
+    final String imageUrl = exercise.imageUrl!;
+
+    // Check if the URL is a GitHub URL that needs to be modified for raw content
+    final bool isGitHubUrl =
+        imageUrl.contains('github.com') || imageUrl.contains('/blob/');
+
+    // If it's a GitHub URL, convert it to raw content URL
+    final String effectiveUrl = isGitHubUrl
+        ? imageUrl
+            .replaceFirst('github.com', 'raw.githubusercontent.com')
+            .replaceFirst('/blob/', '/')
+        : imageUrl;
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -64,7 +77,7 @@ class ExerciseDetailScreen extends ConsumerWidget {
             title: Text(exercise.name),
             background: exercise.imageUrl != null
                 ? Image.network(
-                    exercise.imageUrl!,
+                    effectiveUrl,
                     fit: BoxFit.cover,
                   )
                 : Container(
