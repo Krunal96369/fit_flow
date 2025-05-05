@@ -1,21 +1,23 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/repositories/repository_providers.dart';
+import '../../auth/application/auth_controller.dart';
 import '../data/repositories/exercise_repository_provider.dart';
-import '../data/repositories/workout_repository_provider.dart';
 import '../domain/models/exercise.dart';
+import '../domain/models/weight_unit.dart';
 import '../domain/models/workout_session.dart';
 import '../domain/models/workout_set.dart';
 import '../domain/repositories/exercise_repository.dart';
-import '../domain/repositories/workout_repository.dart'
-    hide workoutRepositoryProvider;
+import '../domain/repositories/workout_repository.dart';
 
 /// Controller for managing workout tracking features
 class WorkoutController {
   final WorkoutRepository _repository;
   final ExerciseRepository _exerciseRepository;
+  final Ref _ref;
 
-  WorkoutController(this._repository, this._exerciseRepository);
+  WorkoutController(this._repository, this._exerciseRepository, this._ref);
 
   /// Fetch all available exercises
   Future<List<Exercise>> getExercises() async {
@@ -38,10 +40,53 @@ class WorkoutController {
     }
   }
 
-  /// Get all workout sessions for a specific date
-  Future<List<WorkoutSession>> getWorkoutsForDate(
-      String userId, DateTime date) async {
+  /// Get all workout sessions for a specific date range
+  Future<List<WorkoutSession>> getWorkoutsForDateRange(
+      DateTime startDate, DateTime endDate) async {
     try {
+      final userId = _ref.read(currentUserIdProvider);
+      if (userId == null) {
+        debugPrint('getWorkoutsForDateRange: User not logged in.');
+        return []; // Return empty list if no user
+      }
+      // Ensure endDate includes the whole day
+      final adjustedEndDate =
+          DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+      return await _repository.getWorkoutsForDateRange(
+          userId, startDate, adjustedEndDate);
+    } catch (e) {
+      debugPrint('Error in getWorkoutsForDateRange: $e');
+      // Return empty list to avoid crashing the UI
+      return [];
+    }
+  }
+
+  /// Calculate the number of unique exercises performed in a given date range
+  Future<int> getUniqueExerciseCountForDateRange(
+      DateTime startDate, DateTime endDate) async {
+    try {
+      final workouts = await getWorkoutsForDateRange(startDate, endDate);
+      final uniqueExerciseIds = <String>{}; // Use a Set for uniqueness
+
+      for (final workout in workouts) {
+        uniqueExerciseIds.addAll(workout.performedExercises.keys);
+      }
+
+      return uniqueExerciseIds.length;
+    } catch (e) {
+      debugPrint('Error in getUniqueExerciseCountForDateRange: $e');
+      return 0; // Return 0 on error
+    }
+  }
+
+  /// Get all workout sessions for a specific date
+  Future<List<WorkoutSession>> getWorkoutsForDate(DateTime date) async {
+    try {
+      final userId = _ref.read(currentUserIdProvider);
+      if (userId == null) {
+        debugPrint('getWorkoutsForDate: User not logged in.');
+        return []; // Return empty list if no user
+      }
       return await _repository.getWorkoutsForDate(userId, date);
     } catch (e) {
       debugPrint('Error in getWorkoutsForDate: $e');
@@ -61,8 +106,30 @@ class WorkoutController {
   }
 
   /// Start a new workout session
-  Future<WorkoutSession> startWorkout(String userId) async {
+  Future<WorkoutSession> startWorkout() async {
     try {
+      // Read our stream-based provider
+      final streamUserId = _ref.read(currentUserIdProvider);
+      debugPrint(
+          '--- startWorkout: streamUserId (from currentUserIdProvider) = $streamUserId ---');
+
+      // Read the AuthController's direct user object
+      // Assuming authControllerProvider is defined and imported
+      final authController = _ref.read(authControllerProvider); // Read directly
+      final directUser = authController.currentUser;
+      debugPrint(
+          '--- startWorkout: directUser (from AuthController) = ${directUser?.uid} ---');
+
+      // Prefer the stream-based ID, but use the direct one if stream is null FOR NOW
+      final userId = streamUserId ?? directUser?.uid;
+
+      if (userId == null) {
+        debugPrint(
+            '--- startWorkout: Both streamUserId and directUser are null ---');
+        // Throw an error or handle appropriately if starting a workout requires a logged-in user
+        throw Exception('Cannot start workout: User not logged in.');
+      }
+      debugPrint('--- startWorkout: Using userId = $userId ---');
       // Create a new workout session with the current time
       final workout = WorkoutSession(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -71,9 +138,10 @@ class WorkoutController {
         performedExercises: {},
       );
 
-      return await _repository.saveWorkout(workout);
+      return await _repository.saveWorkoutSession(workout);
     } catch (e) {
       debugPrint('Error in startWorkout: $e');
+      debugPrintStack(stackTrace: StackTrace.current); // Add stack trace
       rethrow;
     }
   }
@@ -86,12 +154,16 @@ class WorkoutController {
         id: workout.id,
         userId: workout.userId,
         startTime: workout.startTime,
-        endTime: DateTime.now(),
+        endTime: workout.endTime ?? DateTime.now(), // Fallback just in case
         performedExercises: workout.performedExercises,
         notes: workout.notes,
       );
 
-      return await _repository.saveWorkout(updatedWorkout);
+      debugPrint(
+          '--- endWorkout: About to call repository.saveWorkoutSession ---'); // Add log
+      final savedWorkout = await _repository.saveWorkoutSession(updatedWorkout);
+
+      return savedWorkout;
     } catch (e) {
       debugPrint('Error in endWorkout: $e');
       rethrow;
@@ -102,6 +174,7 @@ class WorkoutController {
   Future<WorkoutSession> addSetToWorkout(
     WorkoutSession workout,
     String exerciseId,
+    WeightUnit weightUnit,
     int reps,
     double weight, {
     int? restTimeSeconds,
@@ -116,6 +189,7 @@ class WorkoutController {
       final workoutSet = WorkoutSet(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         exerciseId: exerciseId,
+        weightUnit: weightUnit,
         reps: reps,
         weight: weight,
         restTimeSeconds: restTimeSeconds,
@@ -143,7 +217,7 @@ class WorkoutController {
       );
 
       // Save and return the updated workout
-      return await _repository.saveWorkout(updatedWorkout);
+      return await _repository.saveWorkoutSession(updatedWorkout);
     } catch (e) {
       debugPrint('Error in addSetToWorkout: $e');
       rethrow;
@@ -184,7 +258,7 @@ class WorkoutController {
       );
 
       // Save and return the updated workout
-      return await _repository.saveWorkout(updatedWorkout);
+      return await _repository.saveWorkoutSession(updatedWorkout);
     } catch (e) {
       debugPrint('Error in removeSetFromWorkout: $e');
       rethrow;
@@ -208,7 +282,7 @@ class WorkoutController {
       );
 
       // Save and return the updated workout
-      return await _repository.saveWorkout(updatedWorkout);
+      return await _repository.saveWorkoutSession(updatedWorkout);
     } catch (e) {
       debugPrint('Error in updateWorkoutNotes: $e');
       rethrow;
@@ -226,9 +300,13 @@ class WorkoutController {
   }
 
   /// Get recent workouts for a user
-  Future<List<WorkoutSession>> getRecentWorkouts(String userId,
-      {int limit = 10}) async {
+  Future<List<WorkoutSession>> getRecentWorkouts({int limit = 10}) async {
     try {
+      final userId = _ref.read(currentUserIdProvider);
+      if (userId == null) {
+        debugPrint('getRecentWorkouts: User not logged in.');
+        return []; // Return empty list if no user
+      }
       return await _repository.getRecentWorkouts(userId, limit: limit);
     } catch (e) {
       debugPrint('Error in getRecentWorkouts: $e');
@@ -242,30 +320,14 @@ class WorkoutController {
 final workoutControllerProvider = Provider<WorkoutController>((ref) {
   final exerciseRepository = ref.watch(exerciseRepositoryProvider);
   final workoutRepository = ref.watch(workoutRepositoryProvider);
-  return WorkoutController(workoutRepository, exerciseRepository);
-});
-
-/// Provider for the current user ID (workaround for missing auth controller)
-final currentUserIdProvider = Provider<String>((ref) {
-  // This is a workaround/fallback for development
-  // In the real app, this would come from the auth controller
-  return 'test-user-id';
-});
-
-/// Provider for recent workouts
-final recentWorkoutsProvider =
-    FutureProvider<List<WorkoutSession>>((ref) async {
-  final userId = ref.read(currentUserIdProvider);
-  final controller = ref.watch(workoutControllerProvider);
-  return controller.getRecentWorkouts(userId);
+  return WorkoutController(workoutRepository, exerciseRepository, ref);
 });
 
 /// Provider for workouts on a specific date
 final workoutsForDateProvider =
     FutureProvider.family<List<WorkoutSession>, DateTime>((ref, date) async {
-  final userId = ref.read(currentUserIdProvider);
   final controller = ref.watch(workoutControllerProvider);
-  return controller.getWorkoutsForDate(userId, date);
+  return controller.getWorkoutsForDate(date);
 });
 
 /// Provider for a specific workout by ID
@@ -273,4 +335,29 @@ final workoutByIdProvider =
     FutureProvider.family<WorkoutSession?, String>((ref, workoutId) async {
   final controller = ref.watch(workoutControllerProvider);
   return controller.getWorkoutById(workoutId);
+});
+
+// --- New Providers for Exercise Count ---
+
+/// Provider for the user's weekly exercise goal (Placeholder)
+/// TODO: Fetch this from user settings/profile
+final weeklyExerciseGoalProvider = Provider<int>((ref) {
+  return 15; // Example: Goal is 15 unique exercises per week
+});
+
+/// Provider for the count of unique exercises performed this week
+final weeklyExerciseCountProvider = FutureProvider<int>((ref) async {
+  final now = DateTime.now();
+  // Calculate the start of the week (assuming Monday is the first day)
+  final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+  final startOfWeekDate =
+      DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+  // Calculate the end of the week (Sunday)
+  final endOfWeek = startOfWeekDate.add(const Duration(days: 6));
+  final endOfWeekDate =
+      DateTime(endOfWeek.year, endOfWeek.month, endOfWeek.day, 23, 59, 59);
+
+  final controller = ref.watch(workoutControllerProvider);
+  return controller.getUniqueExerciseCountForDateRange(
+      startOfWeekDate, endOfWeekDate);
 });

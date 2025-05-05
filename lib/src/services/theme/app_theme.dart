@@ -60,9 +60,9 @@ class AppTheme {
 
   static double _calculateRelativeLuminance(Color color) {
     // Convert RGB to linear values
-    double r = _linearizeColorChannel(color.red / 255);
-    double g = _linearizeColorChannel(color.green / 255);
-    double b = _linearizeColorChannel(color.blue / 255);
+    double r = _linearizeColorChannel(color.r / 255);
+    double g = _linearizeColorChannel(color.g / 255);
+    double b = _linearizeColorChannel(color.b / 255);
 
     // Calculate relative luminance
     // L = 0.2126 * R + 0.7152 * G + 0.0722 * B

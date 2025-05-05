@@ -1,43 +1,26 @@
-import 'package:meta/meta.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
+import 'weight_unit.dart';
 
-/// Represents a single set performed for an exercise during a workout.
-@immutable
-class WorkoutSet {
-  const WorkoutSet({
-    required this.id,
-    required this.exerciseId, // Link back to the Exercise
-    required this.reps,
-    required this.weight,
-    this.restTimeSeconds, // Optional rest time after this set
-    this.notes,
+part 'workout_set.freezed.dart';
+part 'workout_set.g.dart';
+
+/// Represents a single set performed for an exercise during a workout session.
+@freezed
+class WorkoutSet with _$WorkoutSet {
+
+  // Ensure WeightUnit is JsonSerializable or has a converter
+  const factory WorkoutSet({
+    required String id,
+    required String exerciseId, // Link back to the Exercise
+    required int reps,
+    required double weight,
+    required WeightUnit weightUnit,
+    int? restTimeSeconds, // Optional rest time after this set
+    String? notes,
     // Add other fields later (e.g., RPE, tempo)
-  });
+  }) = _WorkoutSet;
 
-  final String id;
-  final String exerciseId;
-  final int reps;
-  final double weight; // Assuming weight can be fractional (e.g., kg or lbs)
-  final int? restTimeSeconds;
-  final String? notes;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is WorkoutSet &&
-          runtimeType == other.runtimeType &&
-          id == other.id &&
-          exerciseId == other.exerciseId &&
-          reps == other.reps &&
-          weight == other.weight;
-
-  @override
-  int get hashCode =>
-      id.hashCode ^ exerciseId.hashCode ^ reps.hashCode ^ weight.hashCode;
-
-  @override
-  String toString() {
-    return 'WorkoutSet{id: $id, exerciseId: $exerciseId, reps: $reps, weight: $weight}';
-  }
-
-  // Add fromJson/toJson later
+  // Factory constructor for creating a new WorkoutSet instance from a map
+  factory WorkoutSet.fromJson(Map<String, dynamic> json) =>
+      _$WorkoutSetFromJson(json);
 }
